@@ -1,0 +1,10 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './styles.css';
+import './module-styles.css';
+import './erp-styles.css';
+import './fixes.css';
+import './sidebar.css';
+
+createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

@@ -1,0 +1,3 @@
+import type { ModuleId } from '../types/erp';
+const paths: Record<ModuleId, string> = { dash:'M3 12 12 3l9 9M5 10v10h14V10',ven:'M3 17l6-6 4 4 8-8M15 7h6v6',com:'M6 6h15l-2 9H8L6 6zm0 0L5 3H2M9 20h.01M18 20h.01',inv:'M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8',cli:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',fin:'M3 6h18v12H3zM3 10h18M7 15h3',doc:'M14 3H6v18h12V7l-4-4zM14 3v4h4',adm:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12l2-1-2-4-2 1-2-1V5h-4v2l-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1v2h4v-2l2-1 2 1 2-4-2-1z' };
+export function Icon({ id }: { id: ModuleId }) { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={paths[id]} /></svg>; }
