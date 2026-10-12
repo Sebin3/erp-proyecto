@@ -6,6 +6,12 @@ Aplicación React + TypeScript con los módulos operativos de la referencia Alva
 
 Desde `frontend`, ejecuta `npm install` y `npm run dev`. En PowerShell con ejecución de scripts restringida usa `npm.cmd`.
 
+## Desplegar en Vercel
+
+Importa el repositorio y utiliza la raíz del repositorio (`.`) como Root Directory. El `vercel.json` de la raíz instala y compila dentro de `frontend`, donde están `package.json` y `package-lock.json`, y publica `frontend/dist`.
+
+También se admite Root Directory `frontend`: en ese caso Vercel utiliza `frontend/vercel.json` y publica `dist`. Elimina overrides manuales de Install Command, Build Command y Output Directory para utilizar la configuración versionada. Ambas configuraciones permiten abrir y recargar las rutas del ERP.
+
 ## Módulos
 
 - Panel de control: indicadores calculados de documentos y existencias.
