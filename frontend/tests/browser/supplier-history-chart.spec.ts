@@ -1,0 +1,52 @@
+import {test,expect,type Page} from "@playwright/test";
+import {initialState,createDocument,today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+const key = "enterprisecloud-integrated-erp-v1";
+async function prepare(page: Page, amounts: number[]) {
+ const s = initialState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.movements=[]; s.quotes=[];
+ const supplier=s.suppliers[0];
+ const draft={kind:"OC" as const,date:today(),partyId:supplier.id,warehouseId:s.warehouses[0].id,method:"Contado",voucher:"Factura electrónica",lines:[{productId:s.products[0].id,quantity:1,price:1}],discount:0,freight:0,notes:""};
+ for(const price of amounts) createDocument(s,{...draft,lines:[{...draft.lines[0],price}]});
+ createDocument(s,{...draft,partyId:s.suppliers[1].id,lines:[{...draft.lines[0],price:9999}]});
+ await page.goto("/orden-compra"); await page.evaluate(({s,key})=>localStorage.setItem(key,JSON.stringify(s)),{s,key}); await page.reload();
+ await page.getByRole("button",{name:"+ Nueva orden"}).click(); await page.getByRole("dialog").getByRole("button",{name:"Proveedor",exact:true}).click();
+ const selector=page.getByRole("dialog",{name:"Seleccionar proveedor",exact:true});
+ await selector.getByRole("button",{name:`Ver proveedor ${supplier.name}`,exact:true}).click(); await selector.getByRole("tab",{name:"Historial",exact:true}).click();
+ return {selector,draft,s};
+}
+for(const mobile of [false,true]) test(`horizontal supplier history: real orders, pagination, tooltips and updates ${mobile?"mobile":"desktop"}`,async({page,context})=>{
+ if(mobile) await page.setViewportSize({width:390,height:844});
+ const {selector,draft}=await prepare(page,[616,20,80,300,140,250,10]);
+ const chart=selector.locator(".pp-horizontal-chart"), rows=chart.locator(".pp-horizontal-row");
+ await expect(rows).toHaveCount(5);
+ expect(await rows.evaluateAll(nodes=>nodes.map(n=>Number(n.getAttribute("data-value"))))).toEqual([616,300,250,140,80]);
+ await expect(selector.locator(".pp-purchase-summary")).toContainText("1,416.00");
+ await expect(selector.locator(".pp-table-wrap").first().locator("tbody tr")).toHaveCount(7);
+ await rows.first().focus(); await expect(chart.locator("[role=status]")).toContainText("616.00");
+ await expect(chart.locator("[role=status]")).toContainText(today().split("-").reverse().join("/"));
+ const firstCode=await rows.first().locator(".pp-horizontal-label").innerText(); await expect(chart.locator("[role=status]")).toContainText(firstCode);
+ await page.keyboard.press("Escape"); await expect(selector).toBeVisible(); await expect(chart.locator("[role=status]")).toHaveCount(0);
+ await selector.getByRole("button",{name:"Órdenes siguientes",exact:true}).click();
+ expect(await rows.evaluateAll(nodes=>nodes.map(n=>Number(n.getAttribute("data-value"))))).toEqual([20,10]);
+ await expect(selector.locator(".pp-purchase-summary")).toContainText("1,416.00");
+ await selector.getByRole("button",{name:"Órdenes anteriores",exact:true}).click();
+ const writer=await context.newPage(); await writer.goto("/orden-compra"); const latest=await writer.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
+ createDocument(latest,{...draft,lines:[{...draft.lines[0],price:700}]}); await writer.evaluate(({latest,key})=>localStorage.setItem(key,JSON.stringify(latest)),{latest,key});
+ await expect(rows.first()).toHaveAttribute("data-value","700"); await expect(selector.locator(".pp-purchase-summary")).toContainText("2,116.00");
+ await expect(selector.locator(".pp-table-wrap").first().locator("tbody tr")).toHaveCount(8);
+ await page.bringToFront(); await rows.first().click(); await expect(chart.locator("[role=status]")).toContainText("700.00");
+ expect(await chart.locator(".pp-horizontal-bar").first().evaluate(node=>getComputedStyle(node).backgroundColor)).toBe("rgb(55, 65, 81)");
+ await page.screenshot({path:`test-results/supplier-horizontal-${mobile?"mobile":"desktop"}.png`,fullPage:true});
+});
+test("supplier history shows an empty state and a single-order bar without filler",async({page})=>{
+ const {selector,draft}=await prepare(page,[]);
+ await expect(selector.locator(".pp-chart-empty")).toContainText("Sin compras registradas");
+ await expect(selector.locator(".pp-purchase-summary")).toContainText("0.00");
+ await expect(selector.locator(".pp-horizontal-row")).toHaveCount(0);
+ const latest=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
+ createDocument(latest,{...draft,lines:[{...draft.lines[0],price:616}]});
+ await page.evaluate(({latest,key})=>{localStorage.setItem(key,JSON.stringify(latest)); window.dispatchEvent(new Event("focus"));},{latest,key});
+ await expect(selector.locator(".pp-horizontal-row")).toHaveCount(1);
+ await expect(selector.locator(".pp-purchase-summary")).toContainText("616.00");
+ await expect(selector.getByRole("button",{name:"Órdenes siguientes",exact:true})).toHaveCount(0);
+});

@@ -1,12 +1,14 @@
 import { SupplierDetailsTrigger } from "./suppliers";
 import { ProductDetailsTrigger } from "./products";
-import { InvoiceCreationModal } from "./sales-documents";
+import { Eye, Pencil, Trash2 } from "lucide-react";
+import { SalesDocumentDetailsModal, InvoiceCreationModal } from "./sales-documents";
 import { ReceivingPage, ReceiptModal } from "./receiving";
 import { useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { useErp } from "./store";
 import {
   changeQuote,
+  deleteQuote,
   createDocument,
   dateLabel,
   money,
@@ -790,7 +792,7 @@ export function Quotes() {
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState<{
     quote: Quote;
-    action: "send" | "reject" | "accept";
+    action: "send" | "delete" | "reject" | "accept";
   } | null>(null);
   const data = state.quotes.filter(
     (q) => (!date || q.date === date) && (status === "Todas" || q.status === status),
@@ -885,36 +887,17 @@ export function Quotes() {
             ) : (
               "—"
             ),
-            <div className="row-actions">
-              {["Borrador", "Enviada"].includes(q.status) && (
-                <button className="secondary-btn" onClick={() => setEditor(q)}>
-                  Editar
-                </button>
-              )}
-              {q.status === "Borrador" && (
-                <button
-                  className="btn"
-                  onClick={() => setConfirm({ quote: q, action: "send" })}
-                >
-                  Enviar
-                </button>
-              )}
-              {q.status === "Enviada" && (
-                <>
-                  <button
-                    className="btn"
-                    onClick={() => setConfirm({ quote: q, action: "accept" })}
-                  >
-                    Aceptó
-                  </button>
-                  <button
-                    className="secondary-btn"
-                    onClick={() => setConfirm({ quote: q, action: "reject" })}
-                  >
-                    No aceptó
-                  </button>
-                </>
-              )}
+            <div className="row-actions quote-row-actions">
+              <button className="quote-action-icon" aria-label={`Ver detalles ${q.number}`} title="Ver detalles" onClick={() => setDetail(q.id)}><Eye size={16} /></button>
+              {q.status === "Borrador" && !q.orderId && <>
+                <button className="quote-action-icon" aria-label={`Editar ${q.number}`} title="Editar" onClick={() => setEditor(q)}><Pencil size={16} /></button>
+                <button className="btn" onClick={() => setConfirm({quote: q, action: "send"})}>Enviar</button>
+                <button className="quote-action-icon quote-delete-icon" aria-label={`Eliminar ${q.number}`} title="Eliminar borrador" onClick={() => setConfirm({quote: q, action: "delete"})}><Trash2 size={16} /></button>
+              </>}
+              {q.status === "Enviada" && !q.orderId && <>
+                <button className="btn" onClick={() => setConfirm({quote: q, action: "accept"})}>Aceptar</button>
+                <button className="secondary-btn" onClick={() => setConfirm({quote: q, action: "reject"})}>No aceptó</button>
+              </>}
               {q.orderId && (
                 <a className="secondary-btn" href="/facturacion">
                   Ir a facturación
@@ -963,13 +946,14 @@ export function Quotes() {
           kind="COT"
           quote={editor === true ? undefined : editor}
           onClose={() => setEditor(null)}
-          onSave={(draft, validity) => {
+          onSave={(draft, validity, saveStatus) => {
             const editingQuote = editor !== true;
             transact((s) => {
               saveQuote(
                 s,
                 { ...draft, validity },
                 editor === true ? undefined : editor.id,
+                saveStatus,
               );
             });
             setEditor(null);
@@ -984,11 +968,13 @@ export function Quotes() {
       {confirm && (
         <Modal
           title={
-            confirm.action === "accept"
+            confirm.action === "send"
+              ? "¿Enviar cotización al cliente?"
+              : confirm.action === "accept"
               ? "Confirmar aceptación"
               : confirm.action === "reject"
                 ? "Registrar rechazo"
-                : "Enviar cotización"
+                : "Eliminar cotización"
           }
           onClose={() => setConfirm(null)}
         >
@@ -996,13 +982,16 @@ export function Quotes() {
             {confirm.quote.number} · {party(confirm.quote.partyId)} ·{" "}
             {money(confirm.quote.total)}
           </p>
-          <p>
+          {confirm.action === "send" ? <div>
+            <p>Se marcará como enviada a <strong>{state.customers.find((customer) => customer.id === confirm.quote.partyId)?.email?.trim() || confirm.quote.customerSnapshot?.email?.trim() || "cliente sin correo registrado"}</strong>.</p>
+            <p className="muted">Este paso registra el envío; no envía correos automáticamente.</p>
+          </div> : <p>
             {confirm.action === "accept"
               ? "Se creará una orden de venta vinculada. El stock se descontará al facturar."
               : confirm.action === "reject"
-                ? "La cotización volverá a borrador para editarla o reenviarla."
-                : "La cotización se marcará como enviada. Este botón registra el estado; no envía un correo."}
-          </p>
+                ? "La cotización quedará en borrador para corregirla o eliminarla."
+                : "Se eliminará este borrador. No se modificarán el stock ni otros documentos."}
+          </p>}
           <div className="modal-actions">
             <button className="secondary-btn" onClick={() => setConfirm(null)}>
               Cancelar
@@ -1011,11 +1000,15 @@ export function Quotes() {
               className="btn"
               onClick={() => {
                 try {
-                  transact((s) =>
-                    changeQuote(s, confirm.quote.id, confirm.action),
-                  );
-                  if (confirm.action === "send") {
-                    toast.info("Cotización enviada.");
+                  const {quote, action} = confirm;
+                  transact((s) => {
+                    if (action === "delete") deleteQuote(s, quote.id);
+                    else changeQuote(s, quote.id, action);
+                  });
+                  if (confirm.action === "delete") {
+                    toast.success("Borrador eliminado correctamente.");
+                  } else if (confirm.action === "send") {
+                    toast.success("Cotización marcada como enviada.");
                   } else if (confirm.action === "accept") {
                     toast.success(
                       "Cotización aceptada y orden de venta creada.",
@@ -1033,11 +1026,12 @@ export function Quotes() {
                 }
               }}
             >
-              Confirmar
+              {confirm.action === "send" ? "Enviar cotización" : "Confirmar"}
             </button>
           </div>
         </Modal>
       )}
+      {detail && state.quotes.find((quote) => quote.id === detail) && <SalesDocumentDetailsModal doc={state.quotes.find((quote) => quote.id === detail)!} onClose={() => setDetail(null)} />}
       {detail && state.documents.find((d) => d.id === detail) && (
         <DocDetail
           doc={state.documents.find((d) => d.id === detail)!}

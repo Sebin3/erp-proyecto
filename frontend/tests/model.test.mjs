@@ -8,6 +8,7 @@ import {
   pay,
   saveQuote,
   changeQuote,
+  deleteQuote,
   stockOf,
   today,
   total,
@@ -330,4 +331,57 @@ test("collections generate unique internal references without manual input", () 
   assert.notEqual(cp.payments[0].reference, cp.payments[1].reference);
   assert.equal(cp.status, "Pagada");
   assert.equal(order.status, "Facturada");
+});
+
+
+test("quotations require sending and accepted records cannot be deleted", () => {
+ const s = initialState(), d = draft(s), q = saveQuote(s, {...d, validity: 15});
+ const stock = structuredClone(s.stock);
+ assert.throws(() => changeQuote(s, q.id, "accept"), /Primero envía/);
+ changeQuote(s, q.id, "send");
+ assert.throws(() => deleteQuote(s, q.id), /Solo puedes eliminar/);
+ changeQuote(s, q.id, "accept");
+ assert.equal(q.status, "Aceptada");
+ assert.equal(s.documents.filter(d => d.sourceId === q.id).length, 1);
+ assert.deepEqual(s.stock, stock);
+ const before = JSON.stringify(s);
+ assert.throws(() => deleteQuote(s, q.id), /Solo puedes eliminar/);
+ assert.throws(() => changeQuote(s, q.id, "accept"));
+ assert.equal(JSON.stringify(s), before);
+ invoice(s, q.orderId, d.voucher, today());
+ assert.throws(() => deleteQuote(s, q.id), /Solo puedes eliminar/);
+});
+
+test("draft deletion preserves inventory, documents and audit, and prevents stale edits", () => {
+ const s = initialState(), d = draft(s), q = saveQuote(s, {...d, validity: 15});
+ const documents = structuredClone(s.documents), stock = structuredClone(s.stock);
+ changeQuote(s, q.id, "send");
+ changeQuote(s, q.id, "reject");
+ assert.equal(q.status, "Borrador");
+ deleteQuote(s, q.id);
+ assert.equal(s.quotes.some(x => x.id === q.id), false);
+ assert.deepEqual(s.documents, documents); assert.deepEqual(s.stock, stock);
+ assert.equal(s.audit[0].action, "Eliminar cotización");
+ assert.throws(() => saveQuote(s, {...d, validity: 15}, q.id), /ya no existe/);
+ assert.throws(() => deleteQuote(s, q.id), /no encontrada/);
+ const linked = saveQuote(s, {...d, validity: 15});
+ createDocument(s, {...d, kind: "OV"}, linked.id);
+ assert.throws(() => deleteQuote(s, linked.id), /Solo puedes eliminar/);
+});
+
+
+test("saved quotations remain drafts until explicitly sent", () => {
+ const s = initialState(), d = {...draft(s), validity:15};
+ const quote = saveQuote(s, d, undefined, "Borrador");
+ assert.equal(quote.status, "Borrador");
+ const ready = saveQuote(s, d, quote.id, "Borrador");
+ assert.equal(ready.id, quote.id); assert.equal(ready.status, "Borrador");
+ changeQuote(s, ready.id, "send");
+ assert.equal(ready.status, "Enviada");
+ assert.throws(() => saveQuote(s, d, ready.id, "Borrador"));
+ assert.throws(() => deleteQuote(s, ready.id), /Solo puedes eliminar/);
+ changeQuote(s, ready.id, "accept");
+ assert.equal(ready.status, "Aceptada");
+ assert.throws(() => saveQuote(s, d, ready.id, "Borrador"), /vinculada/);
+ assert.throws(() => deleteQuote(s, ready.id), /Solo puedes eliminar/);
 });

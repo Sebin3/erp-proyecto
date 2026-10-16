@@ -26,7 +26,7 @@ export function QuoteEditor({
   kind?: "COT" | "OV";
   quote?: Quote;
   onClose: () => void;
-  onSave: (draft: Draft, validity: number) => void;
+  onSave: (draft: Draft, validity: number, status?: "Borrador") => void;
 }) {
   const { state } = useErp();
   const isQuote = kind === "COT";
@@ -87,11 +87,12 @@ export function QuoteEditor({
             setError("Selecciona un cliente para continuar.");
             return;
           }
+          const status = "Borrador" as const;
           busy.current = true;
           setSaving(true);
           setError("");
           try {
-            await onSave(draft, validity);
+            await onSave(draft, validity, isQuote ? status : undefined);
           } catch (err) {
             setError(
               err instanceof Error ? err.message : "No se pudo guardar.",
@@ -428,7 +429,8 @@ export function QuoteEditor({
             >
               Cancelar
             </button>
-            <button className="btn" disabled={saving || !draft.lines.length}>
+            {isQuote && <button type="submit" name="saveAction" value="draft" className="secondary-btn" disabled={saving || !draft.lines.length}>Guardar como borrador</button>}
+            <button type="submit" name="saveAction" value="quote" className="btn" disabled={saving || !draft.lines.length}>
               {saving && <LoaderCircle size={16} className="quote-spinner" />}
               {saving
                 ? "Guardando…"

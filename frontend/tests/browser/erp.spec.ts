@@ -146,12 +146,9 @@ test("quotation acceptance, invoice, partial payment and full settlement stay li
   await dialog.getByRole("button", { name: "Guardar cotización" }).click();
   let row = page.locator("tbody tr").first();
   const quote = await row.locator("td").first().innerText();
-  await row.getByRole("button", { name: "Enviar", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Confirmar", exact: true })
-    .click();
-  await row.getByRole("button", { name: "Aceptó", exact: true }).click();
+  await row.getByRole("button", {name: "Enviar", exact: true}).click();
+  await page.getByRole("dialog").getByRole("button", {name: "Enviar cotización", exact: true}).click();
+  await row.getByRole("button", { name: "Aceptar", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Confirmar", exact: true })

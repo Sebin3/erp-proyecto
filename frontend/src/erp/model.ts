@@ -110,7 +110,7 @@ export type Quote = DocumentMetadata & {
   discount: number;
   freight: number;
   total: number;
-  status: "Borrador" | "Enviada" | "Aceptada" | "Procesada";
+  status: "Borrador" | "Pendiente" | "Enviada" | "Aceptada" | "Procesada";
   validity: number;
   notes: string;
   orderId?: string;
@@ -798,12 +798,14 @@ export function saveQuote(
   s: State,
   d: Omit<Quote, "id" | "number" | "status" | "total">,
   id?: string,
+  status?: "Borrador",
 ) {
   validate(s, d, true, false);
   if (!Number.isInteger(d.validity) || d.validity < 1 || d.validity > 365)
     throw Error("La vigencia debe estar entre 1 y 365 días.");
   const old = s.quotes.find((q) => q.id === id);
-  if (old && ["Aceptada", "Procesada"].includes(old.status))
+  if (id && !old) throw Error("La cotización ya no existe.");
+  if (old && (old.status !== "Borrador" || old.orderId || s.documents.some((document) => document.sourceId === old.id)))
     throw Error("La cotización ya está vinculada a una venta.");
   const quote: Quote = {
     ...d,
@@ -816,7 +818,7 @@ export function saveQuote(
     createdAt: old?.createdAt ?? new Date().toISOString(),
     id: old?.id ?? uid(),
     number: old?.number ?? number(s, "COT"),
-    status: old?.status ?? "Borrador",
+    status: status ?? old?.status ?? "Borrador",
     total: total(d.lines, d.discount, d.freight),
   };
   if (old) s.quotes[s.quotes.indexOf(old)] = quote;
@@ -832,20 +834,29 @@ export function changeQuote(
   const q = s.quotes.find((q) => q.id === id);
   if (!q) throw Error("Cotización no encontrada.");
   if (action === "send") {
-    if (q.status !== "Borrador") throw Error("La cotización ya fue enviada.");
+    if (q.status !== "Borrador" || q.orderId || s.documents.some((d) => d.sourceId === q.id)) throw Error("Solo puedes enviar una cotización en borrador.");
     q.status = "Enviada";
   } else if (action === "reject") {
-    if (q.orderId) throw Error("La cotización ya tiene una venta vinculada.");
+    if (q.status !== "Enviada" || q.orderId || s.documents.some((d) => d.sourceId === q.id)) throw Error("Solo puedes rechazar una cotización enviada sin venta vinculada.");
     q.status = "Borrador";
   } else {
-    if (q.status !== "Enviada" || q.orderId)
-      throw Error("Primero envía la cotización.");
+    if (q.status !== "Enviada" || q.orderId || s.documents.some((d) => d.sourceId === q.id))
+      throw Error("Primero envía la cotización; no puede tener una venta vinculada.");
     const ov = createDocument(s, { ...q, kind: "OV", date: today() }, q.id);
     q.orderId = ov.id;
     q.status = "Aceptada";
   }
   log(s, "Actualizar cotización", `${q.number}: ${q.status}`);
 }
+export function deleteQuote(s: State, id: string) {
+  const quote = s.quotes.find((q) => q.id === id);
+  if (!quote) throw Error("Cotización no encontrada.");
+  if (quote.status !== "Borrador" || quote.orderId || s.documents.some((d) => d.sourceId === id))
+    throw Error("Solo puedes eliminar cotizaciones en borrador sin una venta vinculada.");
+  s.quotes = s.quotes.filter((q) => q.id !== id);
+  log(s, "Eliminar cotización", quote.number);
+}
+
 export function initialState(): State {
   const names = [
     "Bolsa industrial 20 L",

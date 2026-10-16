@@ -470,3 +470,13 @@
     animation: none;
   }
 }
+
+@media (max-width: 480px) {
+  .quote-footer > div:last-child { flex-wrap: wrap; }
+  .quote-footer button { min-width: 140px; }
+}
+
+.quote-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--mute); cursor: pointer; }
+.quote-action-icon:hover { color: var(--ink); background: var(--surface-soft); }
+.quote-delete-icon:hover { color: #b42318; }
+.quote-action-icon:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

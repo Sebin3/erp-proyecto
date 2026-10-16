@@ -192,3 +192,22 @@ test("legacy demo migration never overwrites edited or user records, and is idem
   assert.equal(JSON.stringify(state.documents), docs);
   assert.equal(upgradeLegacyDemo(state), false);
 });
+
+
+test("supplier purchase ranking sorts actual orders without changing totals or records", async () => {
+ const {supplierPurchaseRanking} = await import("../src/erp/supplier-purchase-chart.ts");
+ const s = initialState(), base = s.documents.find(d => d.kind === "OC");
+ s.documents = [
+  {...base, id:"small",partyId:"chart-vendor",date:"2026-10-16",total:50},
+  {...base, id:"large",partyId:"chart-vendor",date:"2026-10-16",total:616},
+  {...base, id:"medium",partyId:"chart-vendor",date:"2026-10-15",total:100},
+  {...base, id:"other",partyId:"other-vendor",date:"2026-10-16",total:9999},
+ ];
+ const activity = supplierActivity(s,"chart-vendor");
+ const before = structuredClone(activity.orders);
+ const ranked = supplierPurchaseRanking(activity.orders);
+ assert.deepEqual(ranked.map(d => d.id),["large","medium","small"]);
+ assert.deepEqual(activity.orders,before);
+ assert.equal(ranked.reduce((sum,d) => sum+d.total,0),activity.total);
+ assert.deepEqual(supplierPurchaseRanking([]),[]);
+});

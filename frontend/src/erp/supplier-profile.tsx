@@ -1,3 +1,4 @@
+import { supplierPurchaseRanking } from "./supplier-purchase-chart";
 import { useId, useRef, useState } from "react";
 import {
   Building2,
@@ -16,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useErp } from "./store";
-import { money, dateLabel, type Party } from "./model";
+import { money, dateLabel, type Party, type Document } from "./model";
 import {
   saveSupplier,
   supplierActivity,
@@ -26,10 +27,6 @@ import { toast } from "./toast";
 import { ModalDismissButton } from "./modal";
 const display = (value?: string | number) =>
   value === undefined || value === "" ? "No registrado" : value;
-const monthLabel = (month: string) =>
-  new Intl.DateTimeFormat("es-PE", { month: "short", year: "2-digit" }).format(
-    new Date(month + "-01T12:00:00"),
-  );
 function ProfileField({
   label,
   value,
@@ -331,99 +328,33 @@ export function SupplierCommercialTab({ supplier }: { supplier: Party }) {
     </>
   );
 }
-function PurchaseEvolution({ data }: { data: [string, number][] }) {
-  const id = useId().replaceAll(":", "");
-  const [active, setActive] = useState<number | null>(null);
-  if (!data.length)
-    return (
-      <div className="pp-chart-empty">
-        <ChartNoAxesCombined />
-        <strong>Sin compras registradas</strong>
-        <span>La evolución aparecerá al registrar órdenes de compra.</span>
+function PurchaseEvolution({ orders, total }: { orders: Document[]; total: number }) {
+  const [page, setPage] = useState(0);
+  const [active, setActive] = useState<string | null>(null);
+  const sorted = supplierPurchaseRanking(orders);
+  const pages = Math.max(1, Math.ceil(sorted.length / 5));
+  const current = Math.min(page, pages - 1);
+  const visible = sorted.slice(current * 5, (current + 1) * 5);
+  const maximum = Math.max(1, sorted[0]?.total ?? 0);
+  const compact = (value: number) => new Intl.NumberFormat("es-PE", {notation: "compact", maximumFractionDigits: 1}).format(value);
+  return <>
+    <div className="pp-purchase-summary"><span>Compras acumuladas<strong>{money(total)}</strong></span><small>Órdenes por importe · IGV incluido</small></div>
+    {!orders.length ? <div className="pp-chart-empty"><ChartNoAxesCombined /><strong>Sin compras registradas</strong><span>Las órdenes de este proveedor aparecerán aquí al registrarlas.</span></div> : <>
+      <div className="pp-horizontal-chart" role="group" aria-label="Importes de órdenes de compra del proveedor">
+        <div className="pp-horizontal-columns"><span>Orden de compra</span><span>Importe en soles</span></div>
+        {visible.map((order) => <div className="pp-horizontal-item" key={order.id}>
+          <button type="button" className="pp-horizontal-row" data-purchase-order={order.id} data-value={order.total} aria-label={`${order.number}, ${dateLabel(order.date)}, ${money(order.total)}`} onMouseEnter={() => setActive(order.id)} onPointerMove={() => setActive(order.id)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(order.id)} onBlur={() => setActive(null)} onClick={() => setActive(order.id)} onKeyDown={(event) => {if (event.key === "Escape") {event.stopPropagation(); setActive(null);}}}>
+            <span className="pp-horizontal-label" title={order.number}>{order.number}</span>
+            <span className="pp-horizontal-track"><span className="pp-horizontal-bar" style={{width: `${order.total / maximum * 100}%`}} /></span>
+            <strong>{money(order.total)}</strong>
+          </button>
+          {active === order.id && <div className="pp-horizontal-tooltip" role="status"><strong>{order.number}</strong><span>{dateLabel(order.date)}</span><b>{money(order.total)}</b></div>}
+        </div>)}
+        <div className="pp-horizontal-scale" aria-hidden="true">{[0, 1, 2, 3, 4].map((tick) => <span key={tick}>S/ {compact(maximum * tick / 4)}</span>)}</div>
       </div>
-    );
-  const max = Math.max(1, ...data.map(([, value]) => value));
-  const x = (i: number) =>
-    data.length === 1 ? 300 : 18 + (i * 562) / (data.length - 1);
-  const y = (value: number) => 140 - (value / max) * 111;
-  const points = data.map(([, value], i) => `${x(i)},${y(value)}`).join(" ");
-  return (
-    <>
-      <div className="pp-chart">
-        <svg
-          viewBox="0 0 600 160"
-          preserveAspectRatio="none"
-          role="img"
-          aria-label="Evolución mensual de importes de órdenes de compra"
-        >
-          <defs>
-            <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#647d9c" stopOpacity=".18" />
-              <stop offset="1" stopColor="#647d9c" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <g stroke="#e9edf2" strokeWidth="1">
-            <path d="M10 24H590 M10 65H590 M10 106H590 M10 140H590" />
-          </g>
-          {data.length > 1 && (
-            <>
-              <polygon
-                points={`${x(0)},140 ${points} ${x(data.length - 1)},140`}
-                fill={`url(#${id})`}
-              />
-              <polyline
-                points={points}
-                fill="none"
-                stroke="#4c6686"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </>
-          )}
-          {data.map(([month, value], i) => (
-            <circle
-              key={month}
-              cx={x(i)}
-              cy={y(value)}
-              r={active === i ? 6 : 4}
-              fill="#4c6686"
-              stroke="white"
-              strokeWidth="2"
-              tabIndex={0}
-              role="button"
-              aria-label={`${monthLabel(month)}: ${money(value)}`}
-              onMouseEnter={() => setActive(i)}
-              onMouseLeave={() => setActive(null)}
-              onFocus={() => setActive(i)}
-              onBlur={() => setActive(null)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.stopPropagation();
-                  setActive(null);
-                }
-              }}
-            >
-              <title>
-                {monthLabel(month)}: {money(value)}
-              </title>
-            </circle>
-          ))}
-        </svg>
-        {active !== null && (
-          <div className="pp-chart-tooltip" role="status">
-            {monthLabel(data[active][0])}
-            <strong>{money(data[active][1])}</strong>
-          </div>
-        )}
-      </div>
-      <div className="pp-chart-labels">
-        {data.map(([month]) => (
-          <span key={month}>{monthLabel(month)}</span>
-        ))}
-      </div>
-    </>
-  );
+      <div className="pp-purchase-pagination"><span>{current * 5 + 1}–{Math.min((current + 1) * 5, sorted.length)} de {sorted.length} órdenes · Mayor a menor importe</span>{pages > 1 && <div><button type="button" className="pp-page-button" aria-label="Órdenes anteriores" disabled={current === 0} onClick={() => {setPage(current - 1); setActive(null);}}>Anterior</button><button type="button" className="pp-page-button" aria-label="Órdenes siguientes" disabled={current >= pages - 1} onClick={() => {setPage(current + 1); setActive(null);}}>Siguiente</button></div>}</div>
+    </>}
+  </>;
 }
 export function SupplierHistoryTab({ supplier }: { supplier: Party }) {
   const { state } = useErp();
@@ -433,10 +364,10 @@ export function SupplierHistoryTab({ supplier }: { supplier: Party }) {
       <div className="pp-head pp-history-head">
         <div className="pp-section-title pp-no-margin">
           <ChartNoAxesCombined />
-          Evolución de compras
+          Compras por orden
         </div>
       </div>
-      <PurchaseEvolution data={activity.months} />
+      <PurchaseEvolution orders={activity.orders} total={activity.total} />
       <div className="pp-section-title">Últimas órdenes de compra</div>
       <div className="pp-table-wrap">
         <table>

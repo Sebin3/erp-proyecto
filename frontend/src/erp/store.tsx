@@ -18,6 +18,15 @@ const cleanSimulatedAudit = (state: State) => {
   state.auditCleanupVersion = 1;
   return true;
 };
+// "Pendiente" from the interim workflow was saved without an explicit send.
+const normalizeDraftQuotes = (state: State) => {
+  let changed = false;
+  for (const quote of state.quotes) if (quote.status === "Pendiente" && !quote.orderId) {
+    quote.status = "Borrador";
+    changed = true;
+  }
+  return changed;
+};
 type Store = {
   state: State;
   transact: (action: (draft: State) => void) => void;
@@ -50,6 +59,7 @@ function read() {
         cleanSimulatedAudit(state);
         clearOctober16Operations(state);
         ensurePurchasePayables(state);
+        normalizeDraftQuotes(state);
         return state;
       }
       throw Error("Los datos guardados no tienen un formato compatible.");
@@ -85,7 +95,8 @@ export function ErpProvider({ children }: { children: ReactNode }) {
         const operationsCleared = clearOctober16Operations(durable);
         if (operationsCleared) localStorage.setItem(`${KEY}-before-2026-10-16-cleanup`, localStorage.getItem(KEY)!);
         const payablesUpdated = ensurePurchasePayables(durable);
-        if (demoUpgraded || upgraded || catalogExpanded || accessUpgraded || auditCleaned || operationsCleared || payablesUpdated) {
+        const quotesUpdated = normalizeDraftQuotes(durable);
+        if (demoUpgraded || upgraded || catalogExpanded || accessUpgraded || auditCleaned || operationsCleared || payablesUpdated || quotesUpdated) {
           localStorage.setItem(KEY, JSON.stringify(durable));
           current.current = durable;
           setState(durable);

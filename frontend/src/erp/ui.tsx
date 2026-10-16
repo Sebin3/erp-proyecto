@@ -116,7 +116,7 @@ export function DragScroll({ children }: { children: ReactNode }) {
         drag.current.suppressClick = false;
         if (event.pointerType === "mouse" && event.button !== 0) return;
         if (
-          event.target instanceof HTMLElement &&
+          event.target instanceof Element &&
           event.target.closest(
             "button, a, input, select, textarea, label, [role='button']",
           )
@@ -601,7 +601,7 @@ export function OrderEditor(props: {
   kind: "OC" | "OV" | "COT";
   quote?: Quote;
   onClose: () => void;
-  onSave: (draft: Draft, validity: number) => void;
+  onSave: (draft: Draft, validity: number, status?: "Borrador") => void;
 }) {
   return props.kind !== "OC" ? (
     <QuoteEditor {...props} kind={props.kind} />
@@ -618,7 +618,7 @@ function LegacyOrderEditor({
   kind: "OC" | "OV" | "COT";
   quote?: Quote;
   onClose: () => void;
-  onSave: (draft: Draft, validity: number) => void;
+  onSave: (draft: Draft, validity: number, status?: "Borrador") => void;
 }) {
   const { state } = useErp();
   const [draft, setDraft] = useState<Draft>(() =>
