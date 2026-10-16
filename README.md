@@ -2,6 +2,13 @@
 
 Aplicación React + TypeScript con los módulos operativos de la referencia AlvaPlast, conservando la paleta original de EnterpriseCloud.
 
+## Diagramas del sistema
+
+- [Diagrama de flujo general](docs/flujo-general.md): recorrido de uso, estados, decisiones y conexiones de todas las pantallas.
+- [Diagrama de funcionamiento y módulos](docs/funcionamiento-modulos.md): arquitectura actual, persistencia, sincronización, relaciones y responsabilidades de cada módulo.
+
+Los diagramas están escritos en Mermaid y se visualizan directamente en GitHub.
+
 ## Ejecutar
 
 Desde `frontend`, ejecuta `npm install` y `npm run dev`. En PowerShell con ejecución de scripts restringida usa `npm.cmd`.
@@ -21,10 +28,10 @@ También se admite Root Directory `frontend`: en ese caso Vercel utiliza `fronte
 ## Módulos
 
 - Panel de control: indicadores calculados de documentos y existencias.
-- Orden de compra: proveedores, productos, almacenes, pago, descuento y flete.
+- Orden de compra: proveedores, productos, almacenes, pago, descuento y flete; cancelación antes de recibir y sin pagos.
 - Ingreso al Kardex: recepciones completas y parciales con notas de ingreso y remanentes.
 - Cotización: borrador, enviada, aceptación/rechazo y conversión a orden de venta.
-- Orden de venta: pedidos y verificación de disponibilidad.
+- Orden de venta: pedidos y verificación de disponibilidad; cancelación antes de facturar.
 - Facturación: comprobantes, salidas de stock y deuda de ventas a crédito.
 - Estado de cuenta: cobros parciales y completos, historial y saldos.
 - Movimiento de Kardex: entradas/salidas, saldo por almacén y documento original.
@@ -46,7 +53,7 @@ Los comprobantes son registros internos de esta aplicación: no hay envío a SUN
 
 Mantenimientos utiliza `supplier-admin.tsx`: tabla empresarial con búsqueda, filtros, ordenamiento, paginación y acciones Ver, Editar y Eliminar. El selector de compras y reportes sigue en `suppliers.tsx`, con tarjetas y búsqueda conservada al consultar detalles. Ambos utilizan el mismo estado y la misma ficha, convertida desde `frontend/proveedor-premium.html` en `supplier-profile.tsx` y `supplier-premium.css`, con las pestañas General, Contacto, Comercial e Historial.
 
-Los formularios permiten completar información empresarial, contacto, ubicación y condiciones comerciales. País y sitio web se conservan únicamente como datos históricos internos y no aparecen en las interfaces de proveedores. `catalog-logic.ts` centraliza validaciones de RUC, duplicados, identidad y eliminación segura. El RUC se valida localmente por formato y dígito de control; no se verifica la inscripción en el [padrón de SUNAT](https://centrovirtual.sunat.gob.pe/tramites/inscribete-ruc). Un RUC histórico sin dígito correcto puede conservarse al editar otros campos; si se modifica, debe pasar la nueva validación.
+Los formularios permiten completar información empresarial, contacto, ubicación y condiciones comerciales. País y sitio web se conservan únicamente como datos históricos internos y no aparecen en las interfaces de proveedores. `catalog-logic.ts` centraliza validaciones de RUC, duplicados, identidad y eliminación segura. El RUC de proveedores se valida localmente por formato y dígito de control; los clientes aceptan cualquier número de 11 dígitos como RUC, o un DNI de 8 dígitos, sin documentos duplicados. Para proveedores, no se verifica la inscripción en el [padrón de SUNAT](https://centrovirtual.sunat.gob.pe/tramites/inscribete-ruc). Un RUC histórico sin dígito correcto puede conservarse al editar otros campos; si se modifica, debe pasar la nueva validación.
 
 Los registros vinculados a documentos, cotizaciones, movimientos o existencias se desactivan. Solo los registros sin vínculos se eliminan definitivamente. Las transacciones preservan identificadores, documentos y stock y registran auditoría. Clientes y productos comparten tablas, acciones y confirmaciones.
 
