@@ -22,6 +22,7 @@ import {
   supplierActivity,
   supplierErrors,
 } from "./catalog-logic";
+import { toast } from "./toast";
 import { ModalDismissButton } from "./modal";
 const display = (value?: string | number) =>
   value === undefined || value === "" ? "No registrado" : value;
@@ -98,7 +99,6 @@ export function SupplierHeader({ supplier }: { supplier: Party }) {
           <div className="pp-chips">
             <span className="pp-chip">{display(supplier.category)}</span>
             <span className="pp-chip">{display(supplier.supplierType)}</span>
-            {supplier.demo && <span className="pp-chip">DEMO</span>}
           </div>
         </div>
       </div>
@@ -136,13 +136,6 @@ export function SupplierStats({ supplier }: { supplier: Party }) {
             <div className="pp-stat-value">{value}</div>
           </div>
         ))}
-      </div>
-      <div className="pp-demo">
-        {supplier.demo
-          ? "Proveedor ficticio DEMO. Identificación y contactos de ejemplo. "
-          : " "}
-        Indicadores calculados con órdenes registradas; importes ordenados, no
-        pagos realizados.
       </div>
     </>
   );
@@ -194,7 +187,6 @@ export function SupplierContactTab({ supplier }: { supplier: Party }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(supplier);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [notice, setNotice] = useState("");
   const form = useRef<HTMLFormElement>(null);
   const fields = [
     ["contact", "Persona de contacto", UserRound],
@@ -217,7 +209,6 @@ export function SupplierContactTab({ supplier }: { supplier: Party }) {
             setDraft(supplier);
             setErrors({});
             setEditing(!editing);
-            setNotice("");
             requestAnimationFrame(() =>
               form.current?.querySelector("input")?.focus(),
             );
@@ -241,7 +232,7 @@ export function SupplierContactTab({ supplier }: { supplier: Party }) {
             try {
               transact((s) => saveSupplier(s, draft, supplier.id));
               setEditing(false);
-              setNotice("Información de contacto actualizada.");
+              toast.success("Información de contacto actualizada.");
             } catch (error) {
               setErrors({
                 form:
@@ -299,11 +290,6 @@ export function SupplierContactTab({ supplier }: { supplier: Party }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
-      {notice && (
-        <div className="pp-toast" role="status">
-          {notice}
         </div>
       )}
     </>
@@ -449,9 +435,6 @@ export function SupplierHistoryTab({ supplier }: { supplier: Party }) {
           <ChartNoAxesCombined />
           Evolución de compras
         </div>
-        {activity.orders.some((o) => o.demo) && (
-          <span className="pp-chip">Incluye datos DEMO</span>
-        )}
       </div>
       <PurchaseEvolution data={activity.months} />
       <div className="pp-section-title">Últimas órdenes de compra</div>
@@ -469,7 +452,6 @@ export function SupplierHistoryTab({ supplier }: { supplier: Party }) {
               <tr key={order.id}>
                 <td>
                   {order.number}
-                  {order.demo && <span className="pp-demo-inline">DEMO</span>}
                 </td>
                 <td>{dateLabel(order.date)}</td>
                 <td>{money(order.total)}</td>

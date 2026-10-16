@@ -22,8 +22,9 @@ import {
   type CatalogKind,
 } from "./catalog-logic";
 import { Modal, ModalDismissButton } from "./modal";
-import { Records, exportCsv } from "./ui";
+import { Records } from "./ui";
 import { SupplierSelectorModal, SupplierStatusBadge } from "./suppliers";
+import { toast } from "./toast";
 
 export function CatalogDeleteDialog({
   kind,
@@ -216,12 +217,6 @@ export function SupplierForm({
             ? "Los cambios se reflejarán en todos los módulos. El código mantiene los vínculos existentes."
             : "Los campos obligatorios no llevan la etiqueta «opcional»."}
         </p>
-        {supplier?.demo && (
-          <p className="notice">
-            Registro DEMO ficticio. Sus datos no representan una empresa
-            verificada.
-          </p>
-        )}
         {errors.form && (
           <p className="error" role="alert">
             {errors.form}
@@ -464,7 +459,6 @@ export function SupplierTable({
             </button>
             <small>
               {s.supplierType || "Tipo no registrado"}
-              {s.demo && " · DEMO"}
             </small>
           </>,
           s.taxId,
@@ -500,21 +494,28 @@ export function SupplierTable({
           </div>,
         ],
       }))}
-      onExport={() =>
-        exportCsv(
-          "proveedores",
-          headers.slice(0, -1),
-          suppliers.map((s) => [
-            s.id,
-            s.name,
-            s.taxId,
-            s.category ?? "",
-            s.contact,
-            s.paymentTerms ?? "",
-            s.active ? "Activo" : "Inactivo",
-          ]),
-        )
-      }
+      exportData={{
+        name: "proveedores",
+        title: "Proveedores",
+        profile: "catalog",
+        company: { name: state.settings.company },
+        subtitle:
+          "Directorio maestro de proveedores y condiciones comerciales.",
+        summary: [
+          { label: "Proveedores", value: suppliers.length },
+          { label: "Activos", value: suppliers.filter((s) => s.active).length },
+        ],
+        headers: headers.slice(0, -1),
+        rows: suppliers.map((s) => [
+          s.id,
+          s.name,
+          s.taxId,
+          s.category ?? "",
+          s.contact,
+          s.paymentTerms ?? "",
+          s.active ? "Activo" : "Inactivo",
+        ]),
+      }}
     />
   );
 }
@@ -522,28 +523,17 @@ export function SupplierAdministration() {
   const [editing, setEditing] = useState<Party | null | undefined>(undefined);
   const [detail, setDetail] = useState("");
   const [deleting, setDeleting] = useState("");
-  const [notice, setNotice] = useState("");
-  const { state } = useErp();
   return (
     <>
       <div className="hd">
         <div>
           <h2>Proveedores</h2>
-          <p className="muted no-margin">
-            {state.suppliers.length} empresas · Fuente compartida con compras y
-            recepción
-          </p>
         </div>
         <button type="button" className="btn" onClick={() => setEditing(null)}>
           <Plus size={15} />
           Nuevo proveedor
         </button>
       </div>
-      {notice && (
-        <p className="notice" role="status">
-          {notice}
-        </p>
-      )}
       <SupplierTable
         onDetails={setDetail}
         onEdit={setEditing}
@@ -554,7 +544,11 @@ export function SupplierAdministration() {
           supplier={editing ?? undefined}
           onClose={() => setEditing(undefined)}
           onSaved={() => {
-            setNotice(editing ? "Proveedor actualizado." : "Proveedor creado.");
+            toast.success(
+              editing
+                ? "Proveedor actualizado correctamente."
+                : "Proveedor creado correctamente.",
+            );
             setEditing(undefined);
           }}
         />
@@ -572,7 +566,7 @@ export function SupplierAdministration() {
           onClose={() => setDeleting("")}
           onDone={(deactivated) => {
             setDeleting("");
-            setNotice(
+            toast[deactivated ? "warning" : "success"](
               deactivated
                 ? "Proveedor desactivado. Su historial se conserva."
                 : "Proveedor eliminado.",

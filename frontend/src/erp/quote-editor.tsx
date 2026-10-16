@@ -5,6 +5,7 @@ import { CustomerSelector } from "./customers";
 import { ProductSelectorModal, ProductDetailsTrigger } from "./products";
 import { appendProducts } from "./product-query";
 import { useErp } from "./store";
+import { toast } from "./toast";
 import {
   methods,
   vouchers,
@@ -49,8 +50,7 @@ export function QuoteEditor({
   const [validity, setValidity] = useState(quote?.validity ?? 15);
   const [selecting, setSelecting] = useState(false),
     [saving, setSaving] = useState(false);
-  const [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const busy = useRef(false);
   const update = (key: keyof Draft, value: unknown) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -211,11 +211,6 @@ export function QuoteEditor({
                 Seleccionar productos
               </button>
             </div>
-            {notice && (
-              <p role="status" className="quote-notice">
-                {notice}
-              </p>
-            )}
             {draft.lines.length ? (
               <div className="quote-table">
                 <table>
@@ -310,7 +305,6 @@ export function QuoteEditor({
                                   (x) => x.productId !== l.productId,
                                 ),
                               );
-                              setNotice("");
                             }}
                           >
                             <Trash2 size={16} />
@@ -456,7 +450,7 @@ export function QuoteEditor({
               "lines",
               appendProducts(state, draft.lines, ids, draft.warehouseId, kind),
             );
-            setNotice(
+            toast.info(
               `${ids.length} producto(s) agregados ${isQuote ? "a la cotización" : "a la orden"}.`,
             );
           }}

@@ -8,6 +8,12 @@ Desde `frontend`, ejecuta `npm install` y `npm run dev`. En PowerShell con ejecu
 
 ## Desplegar en Vercel
 
+Repositorio: https://github.com/josueochoareyes/erp-proyecto
+
+No se requieren variables de entorno, claves API ni conexión a una base de datos para esta versión. En Vercel, importa el repositorio, deja Root Directory en `.` y pulsa Deploy. Los comandos de instalación (`cd frontend && npm ci`), compilación (`cd frontend && npm run build`) y salida (`frontend/dist`) ya están definidos en `vercel.json`. Usa Node.js 24.x para ejecutar también las pruebas de Node que importan archivos TypeScript.
+
+La aplicación usa localStorage: los módulos y pestañas del mismo navegador y dominio comparten datos. El dominio nuevo de Vercel tiene almacenamiento independiente del entorno local y del sitio anterior; desplegar el código no transfiere los registros guardados ni crea un backend multiusuario.
+
 Importa el repositorio y utiliza la raíz del repositorio (`.`) como Root Directory. El `vercel.json` de la raíz instala y compila dentro de `frontend`, donde están `package.json` y `package-lock.json`, y publica `frontend/dist`.
 
 También se admite Root Directory `frontend`: en ese caso Vercel utiliza `frontend/vercel.json` y publica `dist`. Elimina overrides manuales de Install Command, Build Command y Output Directory para utilizar la configuración versionada. Ambas configuraciones permiten abrir y recargar las rutas del ERP.
@@ -24,7 +30,7 @@ También se admite Root Directory `frontend`: en ese caso Vercel utiliza `fronte
 - Movimiento de Kardex: entradas/salidas, saldo por almacén y documento original.
 - Stock de productos: existencias, mínimos y valorización al costo del catálogo.
 - Reportes: ventas por período, compras por proveedor, stock valorizado, kardex, cuentas por cobrar y comprobantes.
-- Mantenimientos: clientes, proveedores, productos, almacenes, categorías, empresa, respaldo y auditoría.
+- Mantenimientos: clientes, proveedores, productos, almacenes, categorías, empresa y respaldo. Auditoría se consulta en Administración.
 
 ## Datos y reglas
 
@@ -32,7 +38,7 @@ La clave `enterprisecloud-integrated-erp-v1` de localStorage guarda un único es
 
 Crear una compra no modifica stock: recibirla genera una nota y movimientos de entrada. Crear una venta no modifica stock: facturarla vuelve a verificar disponibilidad y genera salidas. Las cantidades pendientes de recepción permiten completar una compra parcialmente recibida. No se permite recibir más que lo ordenado, facturar dos veces, generar stock negativo, exceder la línea de crédito o cobrar más que la deuda. Los precios incluyen IGV; no se añade otro 18% al total. Crear una orden de venta verifica stock, pero no lo reserva.
 
-Los filtros de fecha, estado y almacén afectan la tabla y el CSV correspondiente. Las tarjetas del historial y el resumen financiero muestran todos los documentos; el inventario y los reportes calculan sus propios filtros. El kardex mantiene el saldo de cada movimiento; la valorización actual usa el costo del catálogo, sin implementar PEPS ni promedio ponderado.
+Los filtros de fecha, estado y almacén afectan la tabla y el CSV correspondiente. Las tarjetas del historial muestran los indicadores acumulados; el inventario y los reportes calculan sus propios filtros. El kardex mantiene el saldo de cada movimiento; la valorización actual usa el costo del catálogo, sin implementar PEPS ni promedio ponderado.
 
 Los comprobantes son registros internos de esta aplicación: no hay envío a SUNAT, emisión fiscal, correo, autenticación real ni base de datos multiusuario. El botón Enviar cotización registra el estado, sin enviar mensajes. Los datos no se comparten entre dispositivos. Mantenimientos → Empresa permite descargar un respaldo JSON.
 
@@ -54,10 +60,24 @@ No se publicaron cambios en la web de referencia ni en un hosting externo.
 
 ## Selector compartido de productos
 
-El panel ejecutivo (`dashboard.tsx`) muestra indicadores acumulados, saldos y antigüedad de deuda, alertas por almacén y órdenes de venta con búsqueda, ordenamiento y páginas iniciales de cinco registros. El gráfico tiene períodos propios: ocho semanas, seis meses o cuatro trimestres. `dashboard-data.ts` obtiene utilidad estimada de los costos históricos de las salidas, descontando IGV según el contrato actual de precios incluidos (18%); no resta compras como costo de ventas. La rotación utiliza valoraciones registradas y promedio ponderado en el tiempo, mostrando las fechas y el origen DEMO. Sin valores suficientes, se indica explícitamente.
+El panel ejecutivo (`dashboard.tsx`) muestra indicadores acumulados, cuentas por cobrar, pedidos por facturar, alertas por almacén y únicamente las órdenes de venta de hoy, con búsqueda, ordenamiento y páginas iniciales de cinco registros. El gráfico compara ventas y compras por día desde el inicio del mes hasta hoy, sin fechas futuras ni selectores de período. `dashboard-data.ts` obtiene la utilidad estimada de los costos históricos de las salidas, descontando IGV según el contrato actual de precios incluidos (18%); no resta compras como costo de ventas.
 
-`dashboard-demo.ts` completa una sola vez ejemplos identificados como DEMO: una compra con recepción, dos ventas facturadas, dos cotizaciones, tres cuentas por pagar y tres valoraciones simuladas en instalaciones íntegramente DEMO. Mantiene identificadores y documentos anteriores. No genera valoraciones históricas cuando hay registros reales mezclados. Las deudas de proveedores y sus pagos se consultan en Estado de cuenta mediante `payables.tsx`; sus saldos se guardan por separado de los importes de órdenes de compra. El perfil actual sigue siendo local (“Administrador”), sin autenticación nueva.
+`dashboard-demo.ts` completa una sola vez ejemplos identificados como DEMO. La limpieza única de `operation-cleanup.ts` elimina las operaciones del 16/10/2026 solicitadas, ajusta inventario y vínculos, y conserva los registros nuevos posteriores a esa limpieza. Cuentas por pagar y Rotación de inventario no aparecen en el dashboard ni en Cuentas por cobrar. El perfil actual sigue siendo local, sin autenticación de servidor.
 
 `products.tsx` ofrece búsqueda por nombre, código, SKU, código de barras y descripción; filtros reales de categoría, estado y existencias; ordenamiento; fichas y selección múltiple. `product-query.ts` aplica filtros y ordenamiento sobre todo el catálogo antes de paginar (10, 20 o 50 registros). Compras utiliza costos y permite stock cero; ventas utiliza precios y comprueba el almacén y las cantidades existentes; cotizaciones permite proponer productos sin stock. Agregar de nuevo un producto aumenta su cantidad en uno y conserva su precio negociado.
 
 Compras, ventas y cotizaciones utilizan el mismo selector. Los documentos y el inventario permiten consultar la ficha compartida; las recepciones mantienen las líneas de su orden de origen. Mantenimientos edita SKU y código de barras opcionales en la misma fuente persistente. No se crean catálogos adicionales. El proyecto contiene ocho productos DEMO; las pruebas utilizan un catálogo aislado de 240 registros para verificar filtros y paginación sin añadirlos a los datos del usuario.
+
+## Fichas de venta y comprobantes
+
+Las órdenes de venta y los comprobantes usan `sales-documents.tsx`: fichas con General, Productos, Resumen económico y Seguimiento. La confirmación de facturación presenta datos de la orden sin editar sus líneas, previsión de numeración interna, vencimiento según la condición de crédito y un resumen de las operaciones. Al confirmar se utiliza la transacción existente; la ficha del comprobante generado se abre automáticamente.
+
+Los documentos nuevos conservan una copia del cliente, descripción/categoría/unidad de los productos, moneda, condiciones comerciales y fecha de creación. Los eventos de estado se registran desde las nuevas operaciones. No se reconstruyen ni sobrescriben los históricos: si no hay copia del cliente se identifica que procede de la ficha actual; las fechas y estados históricos ausentes se muestran sin inventarlos. Seguimiento también consulta los eventos de auditoría relacionados.
+
+El total guardado es la referencia del resumen; base imponible e IGV se desglosan según el contrato de precios con 18% incluido. El descuento existente es global y no se distribuye ficticiamente entre productos. Cualquier diferencia histórica entre el detalle y el total se muestra sin corregir el documento. La impresión genera un registro interno con presentación empresarial, identificado como DEMO cuando corresponde y sin atribuir validación SUNAT.
+
+`tests/sales-documents.test.mjs` comprueba datos acordados y copias independientes durante la conversión/facturación, relaciones documentales y totales históricos. `tests/browser/sales-documents.spec.ts` cubre escritorio, móvil, pestañas, vínculos de origen, facturación, persistencia y rechazo por stock insuficiente.
+
+## Facturacion y cobros
+
+Al facturar, la orden queda Facturada y el comprobante Pendiente de pago, incluso al contado. El cobro se registra por separado en Estado de cuenta: un abono deja Pago parcial y el pago completo deja Pagada con saldo cero. Cada nuevo cobro genera una referencia interna COB-000001 sin solicitar escritura manual. El formulario muestra el cliente, comprobante y saldo pendiente, sin bloque de saldo posterior. Las fichas permiten imprimir y no ofrecen descarga HTML. Los documentos anteriores conservan sus registros.

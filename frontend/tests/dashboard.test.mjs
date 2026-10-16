@@ -24,7 +24,7 @@ test("small DEMO completion is coherent, persistent, idempotent and preserves ex
   assert.equal(s.payables.length, 3);
   assert.equal(s.inventoryValuations.length, 3);
   const data = dashboardData(s);
-  assert.equal(data.receivables.length, 3);
+  assert.equal(data.receivables.length, 4);
   assert.equal(data.payables.length, 3);
   assert.ok(data.rotation.value > 0);
   assert.equal(data.rotation.demo, true);
@@ -158,4 +158,82 @@ test("chart groups complete calendar weeks, months and quarters across years ind
   assert.equal(quarter.at(-1).label, "T1 2026");
   assert.equal(quarter.at(-1).sales, 200);
   assert.equal(dashboardData(s, "2026-01-05").salesTotal, 300);
+});
+
+
+test("supplier accounts backfill missing purchases once and preserve recorded payments", async () => {
+  const {ensurePurchasePayables} = await import("../src/erp/purchase-payables.ts");
+  const s = initialState();
+  const orders = s.documents.filter(d => d.kind === "OC");
+  s.payables = undefined;
+  assert.equal(ensurePurchasePayables(s), true);
+  assert.equal(s.payables.length, orders.length);
+  const account = s.payables[0];
+  account.balance -= 1;
+  account.payments.push({id: "payment", date: account.date, amount: 1, method: "Efectivo", reference: "test"});
+  const snapshot = JSON.stringify(s.payables);
+  assert.equal(ensurePurchasePayables(s), false);
+  assert.equal(JSON.stringify(s.payables), snapshot);
+  const credit = orders.find(d => d.method === "Crédito 30 días");
+  const due = new Date(`${credit.date}T12:00:00Z`); due.setUTCDate(due.getUTCDate() + 30);
+  assert.equal(s.payables.find(p => p.documentId === credit.id).dueDate, due.toISOString().slice(0, 10));
+});
+
+test("rotation works without snapshots and includes real sales after old demo valuations", () => {
+  const s = initialState();
+  s.inventoryValuations = undefined;
+  const data = dashboardData(s);
+  assert.ok(data.rotation && Number.isFinite(data.rotation.value));
+  assert.ok(data.rotation.value > 0);
+  assert.equal(data.rotation.estimated, true);
+  s.inventoryValuations = [{date: "2025-01-01", value: 100, includesTax: true, demo: true}, {date: "2025-02-01", value: 100, includesTax: true, demo: true}];
+  s.documents.forEach(d => d.demo = false);
+  assert.ok(dashboardData(s).rotation.value > 0);
+  assert.equal(dashboardData(s).rotation.estimated, true);
+  s.documents = []; s.movements = [];
+  assert.equal(dashboardData(s).rotation.value, 0);
+  s.stock = {};
+  assert.equal(dashboardData(s).rotation, null);
+});
+
+
+test("daily chart stops today, includes today's invoices and excludes future documents", async () => {
+ const {dailyChartBuckets} = await import("../src/erp/dashboard-data.ts");
+ const s = initialState(), base = s.documents.find(d => d.kind === "CP");
+ s.documents = [{...base, date: "2026-10-16", total: 20}, {...base, id: "future", date: "2026-10-26", total: 100}, {...base, id: "previous", date: "2026-09-30", total: 200}];
+ const data = dailyChartBuckets(s, "2026-10-16");
+ assert.equal(data.length, 16); assert.equal(data.at(-1).end, "2026-10-16");
+ assert.equal(data.reduce((sum, d) => sum + d.sales, 0), 20);
+ assert.ok(data.every(d => d.start <= "2026-10-16" && d.end <= "2026-10-16"));
+ assert.equal(dailyChartBuckets(s, "2026-11-01").length, 1);
+ assert.equal(dailyChartBuckets(s, "2028-02-29").length, 29);
+});
+
+
+test("pending invoice summary excludes invoiced, cancelled and future orders", () => {
+ const s = initialState(), base = s.documents.find(d => d.kind === "OV");
+ s.documents = [
+  {...base, id: "pending", date: "2026-10-16", status: "Pendiente", total: 100},
+  {...base, id: "future", date: "2026-10-17", status: "Pendiente", total: 200},
+  {...base, id: "invoiced", date: "2026-10-16", status: "Facturada", total: 300},
+  {...base, id: "cancelled", date: "2026-10-16", status: "Anulada", total: 400},
+ ];
+ const data = dashboardData(s, "2026-10-16");
+ assert.deepEqual(data.pendingInvoices.map(d => d.id), ["pending"]);
+ assert.equal(data.pendingInvoiceTotal, 100);
+ s.documents[0].status = "Facturada";
+ assert.equal(dashboardData(s, "2026-10-16").pendingInvoiceTotal, 0);
+});
+
+
+test("recent orders contain only today's sales orders", () => {
+ const s = initialState(), base = s.documents.find(d => d.kind === "OV");
+ s.documents = [
+  {...base, id: "yesterday", date: "2026-10-15"},
+  {...base, id: "today", date: "2026-10-16"},
+  {...base, id: "tomorrow", date: "2026-10-17"},
+  {...base, id: "invoice", kind: "CP", date: "2026-10-16"},
+ ];
+ assert.deepEqual(dashboardData(s, "2026-10-16").orders.map(d => d.id), ["today"]);
+ assert.deepEqual(dashboardData(s, "2026-10-18").orders, []);
 });

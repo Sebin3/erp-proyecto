@@ -14,10 +14,10 @@ import {
   SlidersHorizontal,
   ClipboardList,
   CircleAlert,
-  Download,
 } from "lucide-react";
 import { Modal, ModalDismissButton } from "./modal";
 import { useErp } from "./store";
+import { ExportMenu, type ExportData } from "./exports";
 
 export type { Supplier } from "./catalog-logic";
 const normalize = (text: string) =>
@@ -165,7 +165,7 @@ export function SupplierDirectory({
   loading = false,
   error,
   onRetry,
-  onExport,
+  exportData,
 }: {
   selectedId?: string;
   onDetails: (supplier: Supplier) => void;
@@ -173,7 +173,7 @@ export function SupplierDirectory({
   loading?: boolean;
   error?: string;
   onRetry?: () => void;
-  onExport?: (suppliers: Supplier[]) => void;
+  exportData?: (suppliers: Supplier[]) => ExportData;
 }) {
   const { state } = useErp();
   const suppliers: Supplier[] = state.suppliers;
@@ -279,15 +279,8 @@ export function SupplierDirectory({
         {results.length === 1
           ? "proveedor encontrado"
           : "proveedores encontrados"}
-        {onExport ? (
-          <button
-            type="button"
-            className="supplier-text-button"
-            onClick={() => onExport(results)}
-          >
-            <Download />
-            Exportar CSV
-          </button>
+        {exportData ? (
+          <ExportMenu data={exportData(results)} />
         ) : (
           <span>Revisa la ficha antes de seleccionar</span>
         )}

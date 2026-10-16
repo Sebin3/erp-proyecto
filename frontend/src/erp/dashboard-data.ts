@@ -121,6 +121,7 @@ export function dashboardData(state: State, now = today()) {
     start: string;
     end: string;
     demo: boolean;
+    estimated?: boolean;
   } = null;
   if (valuations.length >= 2) {
     const start = valuations[0].date,
@@ -141,7 +142,7 @@ export function dashboardData(state: State, now = today()) {
     }
     const average = duration > 0 ? weighted / duration : 0;
     const periodSales = sales.filter(
-      (d) => d.date >= start && d.date <= end && (!demo || d.demo),
+      (d) => d.date >= start && d.date <= end,
     );
     const ids = new Set(periodSales.map((d) => d.id));
     const moves = state.movements.filter(
@@ -173,7 +174,37 @@ export function dashboardData(state: State, now = today()) {
         demo,
       };
   }
+  // Without historical valuations, reconstruct daily quantities from the stock
+  // ledger and value them at current catalog costs. This is explicitly estimated.
+  if ((!rotation || sales.some((d) => d.date > rotation!.end)) && completeCosts && state.products.length) {
+    const start = dateKey(new Date(timestamp(now) - 89 * day));
+    const quantities = structuredClone(state.stock);
+    const costs = new Map(state.products.map((p) => [p.id, p.cost]));
+    const movements = [...state.movements].sort((a, b) => b.date.localeCompare(a.date));
+    let index = 0, sum = 0, valid = state.products.every((p) => Number.isFinite(p.cost) && p.cost >= 0);
+    for (let offset = 0; offset < 90 && valid; offset++) {
+      const date = dateKey(new Date(timestamp(now) - offset * day));
+      while (index < movements.length && movements[index].date > date) {
+        const m = movements[index++];
+        if (!Number.isFinite(m.quantity) || m.quantity < 0) { valid = false; break; }
+        const warehouses = quantities[m.productId] ??= {};
+        warehouses[m.warehouseId] = (warehouses[m.warehouseId] ?? 0) + (m.type === "Entrada" ? -m.quantity : m.quantity);
+      }
+      for (const [productId, warehouses] of Object.entries(quantities)) {
+        for (const quantity of Object.values(warehouses)) {
+          if (!Number.isFinite(quantity) || quantity < -0.000001 || !costs.has(productId)) valid = false;
+          sum += Math.max(0, quantity) * (costs.get(productId) ?? 0) / 1.18;
+        }
+      }
+    }
+    const periodIds = new Set(sales.filter((d) => d.date >= start).map((d) => d.id));
+    const periodCost = state.movements.filter((m) => periodIds.has(m.documentId) && m.type === "Salida").reduce((total, m) => total + m.quantity * m.cost / 1.18, 0);
+    if (valid && sum > 0) rotation = {value: periodCost / (sum / 90), start, end: now, demo: false, estimated: true};
+  }
+  const pendingInvoices = state.documents.filter((d) => d.kind === "OV" && d.status === "Pendiente" && validOperation(d) && d.date <= now);
   return {
+    pendingInvoices,
+    pendingInvoiceTotal: pendingInvoices.reduce((sum, d) => sum + d.total, 0),
     payables,
     payableAging,
     payableDebt: payables.reduce((s, p) => s + p.balance, 0),
@@ -211,7 +242,7 @@ export function dashboardData(state: State, now = today()) {
       .sort((a, b) => (b.overdue ?? 0) - (a.overdue ?? 0))
       .slice(0, 5),
     orders: state.documents
-      .filter((d) => d.kind === "OV")
+      .filter((d) => d.kind === "OV" && d.date === now)
       .sort(
         (a, b) =>
           b.date.localeCompare(a.date) || b.number.localeCompare(a.number),
@@ -266,5 +297,17 @@ export function chartBuckets(state: State, period: ChartPeriod, now = today()) {
         .filter((d) => d.kind === "OC")
         .reduce((s, d) => s + d.total, 0),
     };
+  });
+}
+
+// Current month, one point per day, with no dates after today.
+export function dailyChartBuckets(state: State, now = today()) {
+  const count = Number(now.slice(8, 10));
+  return Array.from({length: count}, (_, index) => {
+    const date = `${now.slice(0, 8)}${String(index + 1).padStart(2, "0")}`;
+    const documents = state.documents.filter((d) => d.date === date && validOperation(d));
+    return {start: date, end: date, label: `${index + 1} ${new Date(timestamp(date)).toLocaleDateString("es-PE", {month: "short", timeZone: "UTC"})}`,
+      sales: documents.filter((d) => d.kind === "CP").reduce((sum, d) => sum + d.total, 0),
+      buys: documents.filter((d) => d.kind === "OC").reduce((sum, d) => sum + d.total, 0)};
   });
 }

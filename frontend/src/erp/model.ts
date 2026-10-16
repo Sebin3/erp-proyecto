@@ -52,7 +52,22 @@ export type Warehouse = {
   branch: string;
   active: boolean;
 };
-export type Line = { productId: string; quantity: number; price: number };
+export type Line = {
+  productId: string;
+  quantity: number;
+  price: number;
+  productSnapshot?: Pick<
+    Product,
+    "name" | "category" | "unit" | "sku" | "description"
+  >;
+};
+export type DocumentMetadata = {
+  customerSnapshot?: Party;
+  currency?: string;
+  commercialTerms?: string;
+  createdAt?: string;
+  statusHistory?: { date: string; status: string }[];
+};
 export type Payment = {
   id: string;
   date: string;
@@ -60,7 +75,7 @@ export type Payment = {
   method: string;
   reference: string;
 };
-export type Document = {
+export type Document = DocumentMetadata & {
   demo?: boolean;
   id: string;
   number: string;
@@ -82,7 +97,7 @@ export type Document = {
   received?: Record<string, number>;
   notes: string;
 };
-export type Quote = {
+export type Quote = DocumentMetadata & {
   demo?: boolean;
   id: string;
   number: string;
@@ -118,7 +133,206 @@ export type Audit = {
   action: string;
   record: string;
 };
+export type PermissionDefinition = {
+  id: string;
+  group: string;
+  label: string;
+};
+export type ErpRole = {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  active: boolean;
+  system?: boolean;
+};
+export type ErpUser = {
+  id: string;
+  name: string;
+  email: string;
+  roleId: string;
+  active: boolean;
+  lastAccess: string;
+  avatar?: string;
+};
+export const permissionCatalog: PermissionDefinition[] = [
+  { id: "dashboard.view", group: "Inicio", label: "Ver resumen ejecutivo" },
+  { id: "purchases.view", group: "Abastecimiento", label: "Consultar compras" },
+  { id: "purchases.manage", group: "Abastecimiento", label: "Gestionar órdenes de compra" },
+  { id: "receiving.manage", group: "Abastecimiento", label: "Registrar ingresos al Kardex" },
+  { id: "sales.view", group: "Comercial", label: "Consultar ventas" },
+  { id: "sales.manage", group: "Comercial", label: "Gestionar cotizaciones y pedidos" },
+  { id: "billing.manage", group: "Comercial", label: "Gestionar facturación" },
+  { id: "collections.manage", group: "Comercial", label: "Gestionar cuentas por cobrar" },
+  { id: "inventory.view", group: "Inventario", label: "Consultar inventario y Kardex" },
+  { id: "inventory.manage", group: "Inventario", label: "Gestionar movimientos de inventario" },
+  { id: "reports.view", group: "Gestión", label: "Consultar analítica y reportes" },
+  { id: "catalogs.manage", group: "Gestión", label: "Gestionar mantenimientos" },
+  { id: "access.manage", group: "Gestión", label: "Gestionar usuarios y roles" },
+  { id: "audit.view", group: "Gestión", label: "Consultar auditoría" },
+];
+export const defaultAccessRoles = (): ErpRole[] => [
+  {
+    id: "ROL-ADMIN",
+    name: "Administrador",
+    description: "Control completo de la operación y configuración del ERP.",
+    permissions: [
+      "dashboard.view",
+      "purchases.view",
+      "purchases.manage",
+      "receiving.manage",
+      "sales.view",
+      "sales.manage",
+      "billing.manage",
+      "collections.manage",
+      "inventory.view",
+      "inventory.manage",
+      "reports.view",
+      "catalogs.manage",
+      "access.manage",
+      "audit.view",
+    ],
+    active: true,
+    system: true,
+  },
+  {
+    id: "ROL-SUPERVISOR",
+    name: "Supervisor",
+    description: "Supervisa operaciones, inventario y resultados del negocio.",
+    permissions: [
+      "dashboard.view",
+      "purchases.view",
+      "purchases.manage",
+      "receiving.manage",
+      "sales.view",
+      "sales.manage",
+      "billing.manage",
+      "collections.manage",
+      "inventory.view",
+      "inventory.manage",
+      "reports.view",
+      "catalogs.manage",
+      "audit.view",
+    ],
+    active: true,
+  },
+  {
+    id: "ROL-OPERADOR",
+    name: "Operador",
+    description: "Registra operaciones diarias sin acceso a configuración.",
+    permissions: [
+      "dashboard.view",
+      "purchases.view",
+      "receiving.manage",
+      "sales.view",
+      "sales.manage",
+      "inventory.view",
+    ],
+    active: true,
+  },
+  {
+    id: "ROL-VENDEDOR",
+    name: "Vendedor",
+    description: "Gestiona cotizaciones, pedidos y seguimiento comercial.",
+    permissions: [
+      "dashboard.view",
+      "sales.view",
+      "sales.manage",
+      "billing.manage",
+      "collections.manage",
+    ],
+    active: true,
+  },
+  {
+    id: "ROL-COMPRADOR",
+    name: "Comprador",
+    description: "Gestiona compras y abastecimiento con proveedores.",
+    permissions: [
+      "dashboard.view",
+      "purchases.view",
+      "purchases.manage",
+      "receiving.manage",
+      "inventory.view",
+    ],
+    active: true,
+  },
+  {
+    id: "ROL-ALMACENERO",
+    name: "Almacenero",
+    description: "Controla existencias, ingresos y movimientos de almacén.",
+    permissions: [
+      "dashboard.view",
+      "purchases.view",
+      "receiving.manage",
+      "inventory.view",
+      "inventory.manage",
+    ],
+    active: true,
+  },
+  {
+    id: "ROL-CONTADOR",
+    name: "Contador",
+    description: "Consulta resultados financieros, facturación y auditoría.",
+    permissions: [
+      "dashboard.view",
+      "sales.view",
+      "billing.manage",
+      "collections.manage",
+      "reports.view",
+      "audit.view",
+    ],
+    active: true,
+  },
+];
+export const defaultAccessUsers = (): ErpUser[] => [
+  {
+    id: "USR-001",
+    name: "Administrador",
+    email: "admin@enterprisecloud.pe",
+    roleId: "ROL-ADMIN",
+    active: true,
+    lastAccess: new Date().toISOString(),
+    avatar: "fox",
+  },
+  {
+    id: "USR-002",
+    name: "Ana Torres",
+    email: "ana.torres@enterprisecloud.pe",
+    roleId: "ROL-VENDEDOR",
+    active: true,
+    lastAccess: new Date().toISOString(),
+    avatar: "rabbit",
+  },
+  {
+    id: "USR-003",
+    name: "Diego Salazar",
+    email: "diego.salazar@enterprisecloud.pe",
+    roleId: "ROL-COMPRADOR",
+    active: true,
+    lastAccess: new Date().toISOString(),
+    avatar: "panda",
+  },
+  {
+    id: "USR-004",
+    name: "Lucía Mendoza",
+    email: "lucia.mendoza@enterprisecloud.pe",
+    roleId: "ROL-ALMACENERO",
+    active: true,
+    lastAccess: new Date().toISOString(),
+    avatar: "penguin",
+  },
+  {
+    id: "USR-005",
+    name: "Marco Rivas",
+    email: "marco.rivas@enterprisecloud.pe",
+    roleId: "ROL-CONTADOR",
+    active: true,
+    lastAccess: new Date().toISOString(),
+    avatar: "owl",
+  },
+];
 export type State = {
+  clearedOperationDates?: string[];
   demoDashboardVersion?: number;
   payables?: {
     id: string;
@@ -148,8 +362,44 @@ export type State = {
   movements: Movement[];
   stock: Record<string, Record<string, number>>;
   audit: Audit[];
+  auditCleanupVersion?: 1;
   settings: { company: string; currency: string };
+  users?: ErpUser[];
+  roles?: ErpRole[];
+  currentUserId?: string;
 };
+export function ensureAccessControl(state: State) {
+  let changed = false;
+  if (!Array.isArray(state.roles) || state.roles.length === 0) {
+    state.roles = defaultAccessRoles();
+    changed = true;
+  } else {
+    const existingRoleIds = new Set(state.roles.map((role) => role.id));
+    defaultAccessRoles().forEach((role) => {
+      if (!existingRoleIds.has(role.id)) {
+        state.roles!.push(role);
+        changed = true;
+      }
+    });
+  }
+  if (!Array.isArray(state.users) || state.users.length === 0) {
+    state.users = defaultAccessUsers();
+    changed = true;
+  } else {
+    const existingUserIds = new Set(state.users.map((user) => user.id));
+    defaultAccessUsers().forEach((user) => {
+      if (!existingUserIds.has(user.id)) {
+        state.users!.push(user);
+        changed = true;
+      }
+    });
+  }
+  if (!state.currentUserId || !state.users.some((user) => user.id === state.currentUserId)) {
+    state.currentUserId = state.users[0]?.id ?? "USR-001";
+    changed = true;
+  }
+  return changed;
+}
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -225,7 +475,29 @@ const log = (s: State, action: string, record: string) =>
     action,
     record,
   });
-export type Draft = {
+export const nextInvoiceNumber = (s: State, voucher: string) =>
+  number(s, "CP", voucher);
+function snapshotLines(s: State, lines: Line[]): Line[] {
+  return lines.map((line) => {
+    const p = s.products.find((p) => p.id === line.productId);
+    return {
+      ...line,
+      productSnapshot: structuredClone(
+        line.productSnapshot ??
+          (p
+            ? {
+                name: p.name,
+                category: p.category,
+                unit: p.unit,
+                sku: p.sku,
+                description: p.description,
+              }
+            : undefined),
+      ),
+    };
+  });
+}
+export type Draft = DocumentMetadata & {
   kind: "OC" | "OV";
   date: string;
   partyId: string;
@@ -283,7 +555,21 @@ export function createDocument(s: State, d: Draft, sourceId?: string) {
   validate(s, d, d.kind === "OV");
   const doc: Document = {
     ...d,
-    lines: d.lines.map((l) => ({ ...l })),
+    lines: snapshotLines(s, d.lines),
+    customerSnapshot:
+      d.kind === "OV"
+        ? structuredClone(
+            d.customerSnapshot ?? s.customers.find((p) => p.id === d.partyId),
+          )
+        : undefined,
+    currency: d.currency ?? s.settings.currency,
+    commercialTerms:
+      d.commercialTerms ??
+      (d.kind === "OV"
+        ? s.customers.find((p) => p.id === d.partyId)?.paymentTerms
+        : undefined),
+    createdAt: new Date().toISOString(),
+    statusHistory: [{ date: new Date().toISOString(), status: "Pendiente" }],
     id: uid(),
     number: number(s, d.kind),
     total: total(d.lines, d.discount, d.freight),
@@ -435,7 +721,11 @@ export function invoice(s: State, id: string, voucher: string, date: string) {
   if (!vouchers.includes(voucher))
     throw Error("Selecciona un tipo de comprobante válido.");
   const ov = s.documents.find((d) => d.id === id && d.kind === "OV");
-  if (!ov || ov.status !== "Pendiente")
+  if (
+    !ov ||
+    ov.status !== "Pendiente" ||
+    s.documents.some((d) => d.kind === "CP" && d.sourceId === id)
+  )
     throw Error("La orden ya fue facturada.");
   validate(s, ov, true);
   if (isCredit(ov.method)) {
@@ -448,38 +738,44 @@ export function invoice(s: State, id: string, voucher: string, date: string) {
         `La venta supera la línea de crédito disponible (${money(Math.max(0, client.credit - debt))}).`,
       );
   }
-  const credit = isCredit(ov.method);
   const cp: Document = {
     ...ov,
     id: uid(),
     number: number(s, "CP", voucher),
     kind: "CP",
+    createdAt: new Date().toISOString(),
+    statusHistory: [
+      {
+        date: new Date().toISOString(),
+        status: "Pendiente de pago",
+      },
+    ],
     voucher,
     date,
     sourceId: ov.id,
-    balance: credit ? ov.total : 0,
-    status: credit ? "Pendiente de pago" : "Pagada",
-    payments: credit
-      ? []
-      : [
-          {
-            id: uid(),
-            date,
-            amount: ov.total,
-            method: ov.method,
-            reference: "Pago al contado",
-          },
-        ],
+    balance: ov.total,
+    status: "Pendiente de pago",
+    payments: [],
   };
   s.documents.unshift(cp);
   move(s, cp, "Salida");
   ov.status = "Facturada";
+  (ov.statusHistory ??= []).push({
+    date: new Date().toISOString(),
+    status: "Facturada",
+  });
   const quote = s.quotes.find((q) => q.orderId === ov.id);
   if (quote) quote.status = "Procesada";
   log(s, "Facturar venta", `${ov.number} → ${cp.number}`);
   return cp;
 }
-export function pay(s: State, id: string, payment: Omit<Payment, "id">) {
+export function nextPaymentReference(s: State) {
+  const references = new Set(s.documents.flatMap((d) => d.payments.map((p) => p.reference)));
+  let sequence = 1;
+  while (references.has(`COB-${String(sequence).padStart(6, "0")}`)) sequence++;
+  return `COB-${String(sequence).padStart(6, "0")}`;
+}
+export function pay(s: State, id: string, payment: Omit<Payment, "id" | "reference"> & { reference?: string }) {
   validateDate(payment.date);
   const cp = s.documents.find((d) => d.id === id && d.kind === "CP");
   if (!cp || cp.balance <= 0) throw Error("El comprobante no tiene deuda.");
@@ -490,8 +786,12 @@ export function pay(s: State, id: string, payment: Omit<Payment, "id">) {
   )
     throw Error("El pago debe ser positivo y no superar el saldo.");
   cp.balance = round(cp.balance - payment.amount);
-  cp.payments.push({ ...payment, amount: round(payment.amount), id: uid() });
+  cp.payments.push({ ...payment, reference: payment.reference?.trim() || nextPaymentReference(s), amount: round(payment.amount), id: uid() });
   cp.status = cp.balance === 0 ? "Pagada" : "Pago parcial";
+  (cp.statusHistory ??= []).push({
+    date: new Date().toISOString(),
+    status: cp.status,
+  });
   log(s, "Registrar cobro", `${cp.number}: ${money(payment.amount)}`);
 }
 export function saveQuote(
@@ -507,7 +807,13 @@ export function saveQuote(
     throw Error("La cotización ya está vinculada a una venta.");
   const quote: Quote = {
     ...d,
-    lines: d.lines.map((l) => ({ ...l })),
+    lines: snapshotLines(s, d.lines),
+    customerSnapshot: structuredClone(
+      s.customers.find((p) => p.id === d.partyId),
+    ),
+    currency: old?.currency ?? s.settings.currency,
+    commercialTerms: s.customers.find((p) => p.id === d.partyId)?.paymentTerms,
+    createdAt: old?.createdAt ?? new Date().toISOString(),
     id: old?.id ?? uid(),
     number: old?.number ?? number(s, "COT"),
     status: old?.status ?? "Borrador",
@@ -613,6 +919,9 @@ export function initialState(): State {
     stock: {},
     audit: [],
     settings: { company: "EnterpriseCloud S.A.C.", currency: "PEN" },
+    users: defaultAccessUsers(),
+    roles: defaultAccessRoles(),
+    currentUserId: "USR-001",
   };
   completeFreshDemo(s);
   products.forEach(
@@ -716,12 +1025,12 @@ export function initialState(): State {
   s.documents.forEach((document) => {
     document.demo = true;
     document.notes = document.notes
-      ? `${document.notes} · DEMO`
-      : "Operación DEMO simulada";
+      ? document.notes
+      : "Operación registrada";
   });
   s.quotes.forEach((quote) => {
     quote.demo = true;
-    quote.notes = "Cotización DEMO simulada";
+    quote.notes = "Cotización comercial registrada.";
   });
   return s;
 }

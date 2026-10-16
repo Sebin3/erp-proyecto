@@ -1,0 +1,68 @@
+import { test, expect } from "@playwright/test";
+import {initialState, createDocument, today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+const key = "enterprisecloud-integrated-erp-v1";
+test("invoice, collection and receipt update other tabs without reloading", async ({page: dashboard, context}) => {
+ const s = initialState(); clearOctober16Operations(s);
+ s.documents = []; s.quotes = []; s.movements = []; s.audit = []; s.demoDashboardVersion = 1;
+ const productId = s.products[0].id, warehouseId = s.warehouses[0].id;
+ const before = s.stock[productId][warehouseId];
+ const draft = {date: today(), partyId: s.customers[0].id, warehouseId, method: "Contado", voucher: "Factura electrónica", lines: [{productId, quantity: 1, price: 20}], discount: 0, freight: 0, notes: ""};
+ const order = createDocument(s, {...draft, kind: "OV"});
+ const purchase = createDocument(s, {...draft, kind: "OC", partyId: s.suppliers[0].id});
+ await dashboard.goto("/dashboard");
+ await dashboard.evaluate(({key, s}) => localStorage.setItem(key, JSON.stringify(s)), {key, s});
+ await dashboard.reload();
+ const pending = dashboard.locator(".ed-finance>.ed-card").filter({hasText: "Pedidos por facturar"});
+ const receivables = dashboard.locator(".ed-finance>.ed-card").filter({hasText: "Cuentas por cobrar"});
+ await expect(pending).toContainText("1 pedido pendiente"); await expect(pending).toContainText("20.00");
+ await expect(dashboard.getByText("Rotación de inventario", {exact: true})).toHaveCount(0);
+ const stock = await context.newPage(); await stock.goto("/stock-productos");
+ await stock.getByLabel("Filtrar almacén").selectOption(warehouseId);
+ const stockRow = stock.locator("tbody tr").filter({hasText: productId});
+ await expect(stockRow.locator("td").nth(2)).toHaveText(String(before));
+ const operations = await context.newPage(); await operations.goto("/orden-venta");
+ await operations.locator("tbody tr").filter({hasText: order.number}).getByRole("button", {name: "Facturar", exact: true}).click();
+ await operations.getByRole("button", {name: "Confirmar facturación"}).click();
+ await expect(pending).toContainText("0 pedidos pendientes");
+ await expect(receivables.locator(".ed-finance-value")).toContainText("20.00");
+ await expect(dashboard.locator(".ed-chart-summary")).toContainText("20.00");
+ const read = () => operations.evaluate(key => JSON.parse(localStorage.getItem(key)!), key);
+ let saved = await read();
+ expect(saved.stock[productId][warehouseId]).toBe(before - 1);
+ await expect(stockRow.locator("td").nth(2)).toHaveText(String(before - 1));
+ const bill = saved.documents.find((d: any) => d.kind === "CP" && d.sourceId === order.id);
+ await operations.goto("/estado-cuenta");
+ await operations.locator("tbody tr").filter({hasText: bill.number}).getByRole("button", {name: "Cobrar", exact: true}).click();
+ await operations.getByRole("dialog").getByLabel("Importe a cobrar").fill("8");
+ await operations.getByRole("button", {name: "Confirmar registrar cobro", exact: true}).click();
+ await expect(receivables.locator(".ed-finance-value")).toContainText("12.00");
+ await operations.goto("/ingreso-kardex");
+ await operations.locator(".rc-order").filter({hasText: purchase.number}).getByRole("button", {name: "Registrar ingreso"}).click();
+ await operations.getByRole("dialog").getByRole("button", {name: "Confirmar recibir compra"}).click();
+ saved = await read();
+ expect(saved.stock[productId][warehouseId]).toBe(before);
+ await expect(stockRow.locator("td").nth(2)).toHaveText(String(before));
+ expect(saved.movements.map((m: any) => m.type).sort()).toEqual(["Entrada", "Salida"]);
+ // Going back to a previously visited tab must keep both operations and payment.
+ await dashboard.bringToFront();
+ await dashboard.reload();
+ await expect(receivables.locator(".ed-finance-value")).toContainText("12.00");
+ await expect(pending).toContainText("0 pedidos pendientes");
+ await operations.reload(); saved = await read();
+ expect(saved.documents.find((d: any) => d.id === bill.id).payments).toHaveLength(1);
+ expect(saved.documents.find((d: any) => d.id === purchase.id).status).toBe("Recibida");
+});
+
+test("focus refresh recovers a missed storage event", async ({page}) => {
+ await page.goto("/dashboard");
+ const amount = await page.locator(".ed-kpi").filter({hasText: "Ventas totales"}).locator("strong").innerText();
+ await page.evaluate(key => {
+  const state = JSON.parse(localStorage.getItem(key)!);
+  const bill = state.documents.find((d: any) => d.kind === "CP");
+  bill.total += 123;
+  localStorage.setItem(key, JSON.stringify(state));
+  window.dispatchEvent(new Event("focus"));
+ }, key);
+ await expect(page.locator(".ed-kpi").filter({hasText: "Ventas totales"}).locator("strong")).not.toHaveText(amount);
+});

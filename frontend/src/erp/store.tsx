@@ -1,4 +1,6 @@
-import { upgradeLegacyDemo } from "./demo";
+import { ensurePurchasePayables } from "./purchase-payables";
+import { clearOctober16Operations } from "./operation-cleanup";
+import { expandCatalogData, upgradeLegacyDemo } from "./demo";
 import { completeDashboardDemo } from "./dashboard-demo";
 import {
   createContext,
@@ -8,8 +10,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { initialState, type State } from "./model";
+import { ensureAccessControl, initialState, type State } from "./model";
 const KEY = "enterprisecloud-integrated-erp-v1";
+const cleanSimulatedAudit = (state: State) => {
+  if (state.auditCleanupVersion === 1) return false;
+  state.audit = [];
+  state.auditCleanupVersion = 1;
+  return true;
+};
 type Store = {
   state: State;
   transact: (action: (draft: State) => void) => void;
@@ -36,13 +44,22 @@ function read() {
         state.settings
       ) {
         upgradeLegacyDemo(state);
+        expandCatalogData(state);
         completeDashboardDemo(state);
+        ensureAccessControl(state);
+        cleanSimulatedAudit(state);
+        clearOctober16Operations(state);
+        ensurePurchasePayables(state);
         return state;
       }
       throw Error("Los datos guardados no tienen un formato compatible.");
     }
     const fresh = initialState();
+    expandCatalogData(fresh);
     completeDashboardDemo(fresh);
+    cleanSimulatedAudit(fresh);
+    clearOctober16Operations(fresh);
+    ensurePurchasePayables(fresh);
     return fresh;
   } catch (error) {
     throw Error(
@@ -61,7 +78,14 @@ export function ErpProvider({ children }: { children: ReactNode }) {
       else {
         const durable = JSON.parse(localStorage.getItem(KEY)!) as State;
         const upgraded = upgradeLegacyDemo(durable);
-        if (completeDashboardDemo(durable) || upgraded) {
+        const catalogExpanded = expandCatalogData(durable);
+        const accessUpgraded = ensureAccessControl(durable);
+        const demoUpgraded = completeDashboardDemo(durable);
+        const auditCleaned = cleanSimulatedAudit(durable);
+        const operationsCleared = clearOctober16Operations(durable);
+        if (operationsCleared) localStorage.setItem(`${KEY}-before-2026-10-16-cleanup`, localStorage.getItem(KEY)!);
+        const payablesUpdated = ensurePurchasePayables(durable);
+        if (demoUpgraded || upgraded || catalogExpanded || accessUpgraded || auditCleaned || operationsCleared || payablesUpdated) {
           localStorage.setItem(KEY, JSON.stringify(durable));
           current.current = durable;
           setState(durable);
@@ -72,27 +96,42 @@ export function ErpProvider({ children }: { children: ReactNode }) {
         "El navegador no permite guardar datos. Habilita el almacenamiento para registrar operaciones.",
       );
     }
-    const sync = (event: StorageEvent) => {
-      if (event.key !== KEY || !event.newValue) return;
+    const sync = () => {
       try {
+        if (!localStorage.getItem(KEY)) return;
         const next = read();
-        current.current = next;
-        setState(next);
+        if (JSON.stringify(next) !== JSON.stringify(current.current)) {
+          current.current = next;
+          setState(next);
+        }
         setStorageError("");
       } catch {
-        setStorageError(
-          "Otra pestaña cambió los datos a un formato incompatible. Recarga para revisar el almacenamiento.",
-        );
+        setStorageError("No se pudieron sincronizar los datos guardados. Recarga para revisar el almacenamiento.");
       }
     };
-    addEventListener("storage", sync);
-    return () => removeEventListener("storage", sync);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === KEY && event.newValue) sync();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", sync);
+    window.addEventListener("pageshow", sync);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("pageshow", sync);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
   const transact = (action: (draft: State) => void) => {
     // Read the durable snapshot before every transaction to preserve edits from other tabs.
     const base = localStorage.getItem(KEY) ? read() : current.current;
     const draft = structuredClone(base);
     action(draft);
+    ensurePurchasePayables(draft);
     try {
       localStorage.setItem(KEY, JSON.stringify(draft));
     } catch {

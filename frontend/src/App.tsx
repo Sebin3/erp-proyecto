@@ -1,11 +1,14 @@
 import { SupplierDetailsTrigger, matchesSupplier } from "./erp/suppliers";
 import { Component, useEffect, useState, type ReactNode } from "react";
 import { ErpProvider, useErp } from "./erp/store";
-import { Operations, Quotes, routes } from "./erp/pages";
+import { Operations, Quotes, routes, administrationRoutes } from "./erp/pages";
 import { Catalogs } from "./erp/catalogs";
+import { AccessControl, ProfileDrawer, avatarToneClass, userInitials, type AccessSection } from "./erp/access-control";
 import { Dashboard, Reports } from "./erp/reports";
 import { Modal } from "./erp/ui";
 import { Icon, moduleIcon } from "./erp/icons";
+import { ToastHost } from "./erp/toast";
+import { EnterpriseCloudLogo } from "./erp/brand-logo";
 const aliases: Record<string, string> = {
   "/": "/dashboard",
   "/inventario/kardex": "/movimiento-kardex",
@@ -16,6 +19,8 @@ const aliases: Record<string, string> = {
   "/compras/ordenes": "/orden-compra",
   "/compras/recepcion": "/ingreso-kardex",
   "/finanzas/cuentas-por-cobrar": "/estado-cuenta",
+  "/usuarios-roles": "/administracion/usuarios",
+  "/administracion": "/administracion/usuarios",
 };
 function Shell() {
   const { state, storageError } = useErp();
@@ -31,6 +36,22 @@ function Shell() {
   const [search, setSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [profile, setProfile] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
+  const currentUser =
+    state.users?.find((user) => user.id === state.currentUserId) ??
+    state.users?.[0] ?? {
+      id: "USR-001",
+      name: "Administrador",
+      email: "admin@enterprisecloud.pe",
+      roleId: "ROL-ADMIN",
+      active: true,
+      lastAccess: new Date().toISOString(),
+    };
+  const currentRole = state.roles?.find((role) => role.id === currentUser.roleId);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const fn = () => setPath(aliases[location.pathname] ?? location.pathname);
     addEventListener("popstate", fn);
@@ -76,7 +97,10 @@ function Shell() {
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, []);
-  const current = routes.find((r) => r.path === path);
+  const current = [...administrationRoutes, ...routes].find((r) => r.path === path);
+  const currentGroup = path.startsWith("/administracion/")
+    ? "Administración"
+    : routes.find((r) => r.path === path)?.group ?? "Inicio";
   useEffect(() => {
     const group = routes.find((r) => r.path === path)?.group;
     if (group) setClosedGroups((list) => list.filter((g) => g !== group));
@@ -87,6 +111,16 @@ function Shell() {
   else if (path === "/cotizacion") page = <Quotes />;
   else if (path === "/reportes") page = <Reports />;
   else if (path === "/mantenimientos") page = <Catalogs />;
+  else if (path.startsWith("/administracion/")) {
+    const section: AccessSection = path.endsWith("/roles")
+      ? "roles"
+      : path.endsWith("/permisos")
+        ? "matriz"
+        : path.endsWith("/auditoria")
+          ? "auditoria"
+          : "usuarios";
+    page = <AccessControl initialSection={section} />;
+  }
   else if (current) page = <Operations key={path} view={path.slice(1)} />;
   else
     page = (
@@ -97,7 +131,7 @@ function Shell() {
           integrada.
         </p>
         <button className="btn" onClick={() => go("/dashboard")}>
-          Abrir panel de control
+          Abrir resumen ejecutivo
         </button>
       </section>
     );
@@ -108,22 +142,8 @@ function Shell() {
       <aside className="integrated-sidebar">
         <header>
           <a href="/dashboard" className="brand">
-            <span className="mark">
-              <Icon name="brand" size={22} />
-            </span>
-            {!collapsed && (
-              <span>
-                EnterpriseCloud<small>ERP · Operación integrada</small>
-              </span>
-            )}
+            <EnterpriseCloudLogo compact={collapsed} />
           </a>
-          <button
-            className="ic sidebar-toggle"
-            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
-            onClick={() => setCollapsed((c) => !c)}
-          >
-            <Icon name="panel" size={17} />
-          </button>
           <button
             className="ic mobile-close"
             aria-label="Cerrar menú"
@@ -170,20 +190,39 @@ function Shell() {
                 <div className="navigation-submenu-inner">
                   {routes
                     .filter((r) => r.group === group)
-                    .map((r) => (
-                      <a
-                        key={r.path}
-                        href={r.path}
-                        title={r.name}
-                        className={
-                          path === r.path ? "menu-link active" : "menu-link"
-                        }
-                        aria-current={path === r.path ? "page" : undefined}
-                      >
-                        <Icon name={moduleIcon[r.path]} size={18} />
-                        {!collapsed && r.name}
-                      </a>
-                    ))}
+                    .map((r) => {
+                      const isAdministration = r.path === "/administracion/usuarios";
+                      if (isAdministration) {
+                        return (
+                          <div className="menu-node" key={r.path}>
+                            {administrationRoutes.map((child) => (
+                              <a
+                                key={child.path}
+                                href={child.path}
+                                className={path === child.path ? "menu-link active" : "menu-link"}
+                                aria-current={path === child.path ? "page" : undefined}
+                              >
+                                <Icon name={moduleIcon[child.path]} size={18} />
+                                {!collapsed && child.name}
+                              </a>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="menu-node" key={r.path}>
+                          <a
+                            href={r.path}
+                            title={r.name}
+                            className={path === r.path ? "menu-link active" : "menu-link"}
+                            aria-current={path === r.path ? "page" : undefined}
+                          >
+                            <Icon name={moduleIcon[r.path]} size={18} />
+                            {!collapsed && r.name}
+                          </a>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             </section>
@@ -191,10 +230,10 @@ function Shell() {
         </nav>
         <footer>
           <button className="profile-button" onClick={() => setProfile(true)}>
-            <span className="av">EC</span>
+            <span className={`av ${avatarToneClass(currentUser.avatar)}`}>{userInitials(currentUser.name)}</span>
             {!collapsed && (
               <span>
-                Administrador<small>Perfil local</small>
+                {currentUser.name}<small>{currentRole?.name ?? "Perfil local"}</small>
               </span>
             )}
           </button>
@@ -204,6 +243,15 @@ function Shell() {
             onClick={() => setDark((d) => !d)}
           >
             <Icon name={dark ? "sun" : "moon"} size={17} />
+          </button>
+          <button
+            className="ic sidebar-toggle"
+            aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+            aria-expanded={!collapsed}
+            title={collapsed ? "Expandir menú" : "Colapsar menú"}
+            onClick={() => setCollapsed((c) => !c)}
+          >
+            <Icon name="panel" size={17} />
           </button>
         </footer>
       </aside>
@@ -224,19 +272,43 @@ function Shell() {
             <Icon name="menu" />
           </button>
           <div className="breadcrumb">
-            EnterpriseCloud <span>/</span> {current?.group ?? "Inicio"}{" "}
+              EnterpriseCloud <span>/</span> {currentGroup}{" "}
             <span>/</span> {current?.name ?? "Página"}
           </div>
-          <button
-            className="search-trigger"
-            onClick={() => {
-              setQuery("");
-              setSearch(true);
-            }}
-          >
-            <Icon name="search" size={16} /> <span>Buscar en el sistema…</span>{" "}
-            <kbd>Ctrl K</kbd>
-          </button>
+          <div className="workspace-tools">
+            <button
+              className="search-trigger"
+              onClick={() => {
+                setQuery("");
+                setSearch(true);
+              }}
+            >
+              <Icon name="search" size={16} /> <span>Buscar en el sistema…</span>{" "}
+              <kbd>Ctrl K</kbd>
+            </button>
+            <button className="header-user" onClick={() => setProfile(true)}>
+              <span className={`header-user-avatar ${avatarToneClass(currentUser.avatar)}`}>{userInitials(currentUser.name)}</span>
+              <span className="header-user-copy">
+                <strong>{currentUser.name}</strong>
+                <small>{currentRole?.name ?? "Perfil local"}</small>
+              </span>
+            </button>
+            <time
+              className="workspace-clock"
+              dateTime={clock.toISOString()}
+              title="Hora local del navegador"
+            >
+              <Icon name="clock" size={15} />
+              <span>
+                {new Intl.DateTimeFormat("es-PE", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                }).format(clock)}
+              </span>
+            </time>
+          </div>
         </header>
         {storageError && (
           <p className="error" role="alert">
@@ -248,7 +320,6 @@ function Shell() {
           <span>
             © {new Date().getFullYear()} {state.settings.company}
           </span>
-          <span>Datos guardados en este navegador</span>
         </footer>
       </main>
       {search && (
@@ -328,24 +399,7 @@ function Shell() {
           </div>
         </Modal>
       )}
-      {profile && (
-        <Modal title="Perfil de operación" onClose={() => setProfile(false)}>
-          <p>Administrador · {state.settings.company}</p>
-          <p className="muted">
-            Este proyecto funciona con datos locales. El acceso multiusuario y
-            la autenticación requieren un servicio de servidor.
-          </p>
-          <button
-            className="btn"
-            onClick={() => {
-              setProfile(false);
-              go("/mantenimientos");
-            }}
-          >
-            Administrar empresa
-          </button>
-        </Modal>
-      )}
+      {profile && <ProfileDrawer onClose={() => setProfile(false)} />}
     </div>
   );
 }
@@ -383,6 +437,7 @@ export default function App() {
   return (
     <DataBoundary>
       <ErpProvider>
+        <ToastHost />
         <Shell />
       </ErpProvider>
     </DataBoundary>

@@ -1,0 +1,398 @@
+/* Dark theme refinements for module styles that have their own visual tokens. */
+:root[data-theme="dark"] .executive-dashboard {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"]
+  .executive-dashboard
+  :is(.ed-kpi, .ed-card, .ed-tooltip, .ed-native-menu, .ed-action-menu > div) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+:root[data-theme="dark"] .executive-dashboard :is(
+    .ed-eyebrow,
+    .ed-header p,
+    .ed-demo-note,
+    .ed-kpi-label,
+    .ed-kpi-bottom small,
+    .ed-kpi-bottom a,
+    .ed-card-title a,
+    .ed-section-head > a,
+    .ed-muted,
+    .ed-aging-labels > div,
+    .ed-text-link,
+    .ed-section-head p,
+    .ed-legend,
+    .ed-tooltip strong,
+    .ed-chart-empty,
+    .ed-alert-identity small,
+    .ed-alert-number small,
+    .ed-empty,
+    .ed-action-menu button,
+    .ed-action-menu a,
+    .ed-order-actions,
+    .ed-native-menu button,
+    .ed-native-menu a
+  ) {
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .executive-dashboard :is(
+    .ed-kpi:hover,
+    .ed-account:hover,
+    .ed-action-menu summary:hover,
+    .ed-action-menu button:hover,
+    .ed-native-menu button:hover,
+    .ed-order-actions:hover
+  ) {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .executive-dashboard :is(
+    .ed-kpi:hover,
+    .ed-chart rect[tabindex]:focus
+  ) {
+  border-color: var(--border-strong);
+}
+
+:root[data-theme="dark"] .executive-dashboard :is(.ed-alert-row) {
+  border-top-color: var(--line);
+}
+
+:root[data-theme="dark"] .executive-dashboard .ed-aging {
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .executive-dashboard .ed-aging-unknown {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--surface-soft),
+    var(--surface-soft) 5px,
+    var(--panel) 5px,
+    var(--panel) 9px
+  );
+}
+
+/* Keep the dashboard accents recognizable without leaving pale tiles in dark mode. */
+:root[data-theme="dark"] .executive-dashboard .ed-icon {
+  color: var(--mute);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"] .executive-dashboard .ed-icon.blue {
+  color: #a9c0d0;
+  background: #263039;
+}
+
+:root[data-theme="dark"] .executive-dashboard .ed-icon.teal {
+  color: #9bc2b0;
+  background: #23322f;
+}
+
+:root[data-theme="dark"] .executive-dashboard .ed-icon.violet {
+  color: #c0b2d1;
+  background: #302b36;
+}
+
+:root[data-theme="dark"] .executive-dashboard .ed-icon.amber {
+  color: #d0b887;
+  background: #332d23;
+}
+
+/* The chart uses inline light-theme SVG colors, so restyle its grid and labels here. */
+:root[data-theme="dark"] .executive-dashboard .enterprise-chart line {
+  stroke: #2a2d2e;
+}
+
+:root[data-theme="dark"] .executive-dashboard .enterprise-chart text {
+  fill: var(--faint);
+}
+
+:root[data-theme="dark"]
+  :is(.receiving-module, .receipt-modal, .receipt-detail-modal) {
+  --panel: #1b1a1a;
+  --bg: #141313;
+  --surface-secondary: #181717;
+  --surface-soft: #211f1f;
+  --line: #444748;
+  --border-strong: #5a5e5f;
+  --ink: #e5e2e1;
+  --mute: #b7b4b3;
+  --faint: #908d8c;
+  --accent: #e5e2e1;
+  --accent-soft: #252323;
+  --hover: #252424;
+  color: var(--ink);
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"]
+  :is(.receiving-module, .receipt-modal, .receipt-detail-modal)
+  :is(.card, .receipt-modal, .receipt-detail-modal, .rc-receipt-context) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"]
+  :is(.receiving-module, .receipt-modal, .receipt-detail-modal)
+  :is(.rc-section-head, .rc-notice, .rc-error, .rc-count, .metric-icon) {
+  color: var(--ink);
+  background: var(--surface-soft);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"]
+  :is(.receiving-module, .receipt-modal, .receipt-detail-modal)
+  :is(.rc-section-head p, .metric-header small, .metric-caption, .supplier-subtitle) {
+  color: var(--mute);
+}
+
+:root[data-theme="dark"]
+  :is(.receiving-module, .receipt-modal, .receipt-detail-modal)
+  :is(.rc-order, input, select, textarea) {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--panel);
+}
+
+:root[data-theme="dark"]
+  :is(.receiving-module, .receipt-modal, .receipt-detail-modal)
+  :is(.secondary-btn) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"]
+  :is(.modal-card.quote-editor, .premium-profile-modal, .pp-profile) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"]
+  :is(.quote-editor, .premium-profile-modal, .pp-profile)
+  :is(input, select, textarea, .customer-select-trigger) {
+  color: var(--ink);
+  background: var(--surface-secondary);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"]
+  :is(.quote-editor, .premium-profile-modal, .pp-profile)
+  :is(.quote-section, .pp-rule, .supplier-modal-footer) {
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"]
+  :is(.quote-editor, .premium-profile-modal, .pp-profile)
+  :is(.quote-customer, .pp-identity, .pp-close:hover, .pp-btn:hover) {
+  color: var(--ink);
+  background: var(--surface-soft);
+}
+
+:root[data-theme="dark"]
+  :is(.quote-editor, .premium-profile-modal, .pp-profile)
+  :is(.quote-section-title > span, .supplier-modal-footer) {
+  background: var(--surface-secondary);
+}
+
+:root[data-theme="dark"]
+  :is(.quote-editor, .premium-profile-modal, .pp-profile)
+  :is(.quote-section-title p, .pp-muted, .pp-breadcrumb, .pp-note, .pp-edit-grid label) {
+  color: var(--mute);
+}
+
+/* Shared ERP surfaces. Some module styles are loaded on demand, so these
+   selectors intentionally sit above their light-only defaults. */
+:root[data-theme="dark"] .integrated-shell :is(
+    .card,
+    .records,
+    .table-tools,
+    .report-menu,
+    .report-filters,
+    .product-picker,
+    .totals,
+    .seg,
+    .search-results,
+    .modal-card,
+    .modal-head,
+    .modal-content
+  ) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .integrated-shell :is(.table-tools, .report-menu) {
+  background: var(--surface-secondary);
+}
+
+:root[data-theme="dark"] .integrated-shell :is(
+    input,
+    select,
+    textarea,
+    .record-search
+  ) {
+  color: var(--ink) !important;
+  background-color: var(--panel) !important;
+  border-color: var(--line) !important;
+}
+
+:root[data-theme="dark"] .integrated-shell :is(input, select, textarea)::placeholder {
+  color: var(--faint);
+}
+
+:root[data-theme="dark"] .integrated-shell :is(th, td) {
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .integrated-shell th {
+  background: var(--surface-secondary);
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .integrated-shell :is(
+    .table-tools > span,
+    .filter-field,
+    .report-filters label,
+    .empty-filter,
+    .records .empty,
+    .records .empty-filter
+  ) {
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .integrated-shell tbody tr:hover {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .integrated-shell :is(.report-menu .secondary-btn, .export-menu-panel button) {
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .integrated-shell :is(.report-menu .secondary-btn:hover, .export-menu-panel button:hover) {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .product-selector-modal {
+  --panel: #1b1a1a;
+  --ink: #e5e2e1;
+  --mute: #b7b4b3;
+  --line: #444748;
+  --surface-secondary: #181717;
+  --surface-soft: #211f1f;
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(
+    .modal-head,
+    .modal-content,
+    .ps-workflow,
+    .ps-list,
+    .ps-detail-view,
+    .ps-footer,
+    .ps-pagination,
+    .pd-fields
+  ) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(.ps-filter-panel, .ps-table th, .ps-pagination) {
+  background: var(--surface-secondary);
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(
+    input,
+    select,
+    textarea,
+    .ps-search
+  ) {
+  color: var(--ink) !important;
+  background: var(--panel) !important;
+  border-color: var(--line) !important;
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(
+    .ps-intro,
+    .ps-filters label,
+    .ps-result span,
+    .ps-code,
+    .ps-secondary,
+    .ps-demo,
+    .ps-number small,
+    .ps-empty,
+    .ps-footer small,
+    .pd-fields small,
+    .pd-description small,
+    .pd-identity small,
+    .pd-identity p
+  ) {
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(.ps-table td, .ps-table th, .ps-table-scroll) {
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(
+    .ps-table tbody tr,
+    .ps-table tbody tr:hover,
+    .ps-table .ps-selected,
+    .ps-badge,
+    .pd-avatar,
+    .pd-description,
+    .modal-heading-icon
+  ) {
+  background: var(--surface-soft);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .product-selector-modal :is(.ps-name, .ps-empty strong, .pd-details, .modal-heading h2) {
+  color: var(--ink);
+}
+
+/* Dark mode keeps the requested light action controls for contrast. */
+:root[data-theme="dark"] .integrated-shell :is(
+    .btn,
+    .secondary-btn,
+    .export-menu-panel button
+  ) {
+  background: #b5b5b5 !important;
+  color: #28292a !important;
+  border-color: #b5b5b5 !important;
+}
+
+:root[data-theme="dark"] .integrated-shell :is(
+    .btn,
+    .secondary-btn,
+    .export-menu-panel button
+  ):hover:not(:disabled) {
+  background: #b5b5b5 !important;
+  color: #28292a !important;
+  border-color: #28292a !important;
+}
+
+/* Reports remain a navigation sidebar in either theme. */
+:root[data-theme="dark"] .integrated-shell .report-menu :is(.btn, .secondary-btn) {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--mute) !important;
+}
+
+:root[data-theme="dark"] .integrated-shell .report-menu .btn {
+  border-left-color: var(--ink) !important;
+  background: var(--surface-soft) !important;
+  color: var(--ink) !important;
+}

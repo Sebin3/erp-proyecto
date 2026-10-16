@@ -3,7 +3,6 @@ import {
   ArrowDownToLine,
   Check,
   ClipboardList,
-  Download,
   Eye,
   Package,
   Warehouse,
@@ -18,8 +17,10 @@ import {
   today,
   type Document,
 } from "./model";
-import { DocDetail, exportCsv, Records } from "./ui";
+import { DocDetail, ExportMenu, Records } from "./ui";
 import { Modal } from "./modal";
+import { toast } from "./toast";
+import { useDailyDateFilter } from "./daily-filter";
 import "./receiving.css";
 
 const pendingLines = (doc: Document) =>
@@ -36,13 +37,12 @@ const quantity = (value: number) =>
 
 export function ReceivingPage() {
   const { state } = useErp();
-  const [date, setDate] = useState("");
+  const [date, setDate] = useDailyDateFilter();
   const [warehouse, setWarehouse] = useState("");
   const [status, setStatus] = useState("");
   const [pendingPage, setPendingPage] = useState(0);
   const [actionId, setActionId] = useState("");
   const [detailId, setDetailId] = useState("");
-  const [notice, setNotice] = useState("");
   const notes = state.documents.filter((d) => d.kind === "NI");
   const pending = state.documents.filter(
     (d) =>
@@ -109,7 +109,7 @@ export function ReceivingPage() {
     "Estado",
     "Acciones",
   ];
-  const csv = data.map((d) => [
+  const exportRows = data.map((d) => [
     d.number,
     dateLabel(d.date),
     supplier(d.partyId),
@@ -136,7 +136,6 @@ export function ReceivingPage() {
         <strong>{d.number}</strong>
         <small>
           {sourceNumber(d)}
-          {d.demo ? " · DEMO" : ""}
         </small>
       </div>,
       dateLabel(d.date),
@@ -172,26 +171,20 @@ export function ReceivingPage() {
             existencias por almacén.
           </p>
         </div>
-        <button
-          className="secondary-btn"
-          onClick={() =>
-            exportCsv(
-              "ingreso-kardex",
-              [...headers.slice(0, -1), "Orden de compra"],
-              csv,
-            )
-          }
-        >
-          <Download size={15} />
-          Exportar CSV
-        </button>
+        <ExportMenu
+          data={{
+            name: "ingreso-kardex",
+            title: "Ingreso al Kardex",
+            profile: "kardex",
+            company: { name: state.settings.company },
+            subtitle:
+              "Recepciones registradas y unidades incorporadas al inventario.",
+            summary: metrics.map(({ label, value }) => ({ label, value })),
+            headers: [...headers.slice(0, -1), "Orden de compra"],
+            rows: exportRows,
+          }}
+        />
       </div>
-      {notice && (
-        <p className="rc-notice" role="status">
-          <Check size={16} />
-          {notice}
-        </p>
-      )}
       <div className="integrated-metrics rc-metrics">
         {metrics.map(({ label, value, caption, icon: MetricIcon }) => (
           <section className="card metric" key={label}>
@@ -367,7 +360,7 @@ export function ReceivingPage() {
           onClose={() => setActionId("")}
           onComplete={(note) => {
             setActionId("");
-            setNotice(
+            toast.success(
               `${note.number} registrada. Stock del almacén y movimientos de Kardex actualizados.`,
             );
           }}

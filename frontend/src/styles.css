@@ -33,27 +33,27 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #111318;
-  --panel: #181b21;
-  --surface-secondary: #15181d;
-  --surface-soft: #22262e;
-  --line: #2c3039;
-  --border-strong: #424854;
-  --ink: #f0f1f4;
-  --mute: #a0a7b4;
-  --faint: #747e8f;
-  --accent: #e1e6ed;
-  --accent-soft: #22262e;
-  --hover: #22262e;
-  --active-bg: #262b33;
-  --active-border: #404753;
-  --ok: #8dbbaa;
-  --warn: #c7ac80;
-  --bad: #d197a0;
-  --chart-sales: #9bb4c8;
-  --chart-buys: #465464;
-  --shadow-sm: 0 1px 3px #0002;
-  --shadow-modal: 0 24px 80px #0007;
+  --bg: #141313;
+  --panel: #1b1a1a;
+  --surface-secondary: #181717;
+  --surface-soft: #211f1f;
+  --line: #444748;
+  --border-strong: #5a5e5f;
+  --ink: #e5e2e1;
+  --mute: #b7b4b3;
+  --faint: #908d8c;
+  --accent: #e5e2e1;
+  --accent-soft: #252323;
+  --hover: #252424;
+  --active-bg: #292828;
+  --active-border: #444748;
+  --ok: #9bc2b0;
+  --warn: #d0b887;
+  --bad: #d59ba1;
+  --chart-sales: #a9c0d0;
+  --chart-buys: #667274;
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.28), 0 8px 22px rgb(0 0 0 / 0.12);
+  --shadow-modal: 0 24px 80px rgb(0 0 0 / 0.62), 0 8px 24px rgb(0 0 0 / 0.34);
 }
 * {
   box-sizing: border-box;

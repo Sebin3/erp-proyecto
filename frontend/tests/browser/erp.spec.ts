@@ -7,15 +7,15 @@ test("all modules load without runtime errors and retain the existing palette", 
   page.on("pageerror", (e) => errors.push(e.message));
   for (const [path, title] of [
     ["dashboard", "Administrador"],
-    ["orden-compra", "Orden de compra"],
+    ["orden-compra", "Órdenes de compra"],
     ["ingreso-kardex", "Ingreso al Kardex"],
-    ["cotizacion", "Cotización"],
-    ["orden-venta", "Orden de venta"],
-    ["facturacion", "Facturación"],
-    ["estado-cuenta", "Estado de cuenta"],
-    ["movimiento-kardex", "Movimiento de Kardex"],
+    ["cotizacion", "Cotizaciones"],
+    ["orden-venta", "Pedidos de venta"],
+    ["facturacion", "Facturación y comprobantes"],
+    ["estado-cuenta", "Cuentas por cobrar"],
+    ["movimiento-kardex", "Movimientos de Kardex"],
     ["stock-productos", "Stock de productos"],
-    ["reportes", "Reportes"],
+    ["reportes", "Analítica y reportes"],
     ["mantenimientos", "Mantenimientos"],
   ]) {
     await page.goto("/" + path);
@@ -112,10 +112,19 @@ test("quotation acceptance, invoice, partial payment and full settlement stay li
 }) => {
   await page.goto("/cotizacion");
   await page.getByRole("button", { name: "+ Nueva cotización" }).click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", {
+    name: "Nueva cotización",
+    exact: true,
+  });
   await dialog
-    .getByRole("combobox", { name: "Cliente", exact: true })
-    .selectOption({ index: 1 });
+    .getByRole("button", { name: "Seleccionar cliente existente" })
+    .click();
+  const customers = page.getByRole("dialog", {
+    name: "Seleccionar cliente",
+    exact: true,
+  });
+  await customers.locator(".customer-results button").first().click();
+  await expect(customers).toBeHidden();
   await dialog.getByLabel("Forma de pago").selectOption("Crédito 30 días");
   await dialog
     .getByRole("button", { name: "Seleccionar productos", exact: true })
@@ -162,7 +171,10 @@ test("quotation acceptance, invoice, partial payment and full settlement stay li
     .filter({ hasText: order.number })
     .getByRole("button", { name: "Facturar", exact: true })
     .click();
-  await page.getByRole("button", { name: "Confirmar facturar venta" }).click();
+  await page.getByRole("button", { name: "Confirmar facturación" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Detalle del comprobante", exact: true }),
+  ).toBeVisible();
   saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)!), key);
   const cp = saved.documents.find(
     (d: any) => d.kind === "CP" && d.sourceId === order.id,
@@ -172,11 +184,11 @@ test("quotation acceptance, invoice, partial payment and full settlement stay li
   row = page.locator("tbody tr").filter({ hasText: cp.number });
   await row.getByRole("button", { name: "Cobrar", exact: true }).click();
   await page.getByLabel("Importe a cobrar").fill("4");
-  await page.getByLabel("Referencia de operación").fill("PAY-1");
+  await expect(page.getByLabel("Referencia de operaci\u00f3n")).toHaveValue(/^COB-\d{6}$/);
   await page.getByRole("button", { name: "Confirmar registrar cobro" }).click();
   await expect(row).toContainText("Pago parcial");
   await row.getByRole("button", { name: "Cobrar", exact: true }).click();
-  await page.getByLabel("Referencia de operación").fill("PAY-2");
+  await expect(page.getByLabel("Referencia de operaci\u00f3n")).toHaveValue(/^COB-\d{6}$/);
   await page.getByRole("button", { name: "Confirmar registrar cobro" }).click();
   await expect(row).toContainText("Pagada");
   await page.reload();
@@ -188,7 +200,7 @@ test("quotation acceptance, invoice, partial payment and full settlement stay li
     page.locator("tbody tr").filter({ hasText: quote }),
   ).toContainText("Procesada");
 });
-test("kardex filters, original document, CSV download and report work", async ({
+test("kardex filters, original document, Excel download and report work", async ({
   page,
 }) => {
   await page.goto("/movimiento-kardex");
@@ -205,12 +217,15 @@ test("kardex filters, original document, CSV download and report work", async ({
     .getByRole("button", { name: "Cerrar", exact: true })
     .last()
     .click();
+  await page.getByRole("button", { name: "Exportar", exact: true }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Exportar CSV", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Exportar Excel", exact: true })
+    .click();
   expect((await download).suggestedFilename()).toContain("movimiento-kardex");
   await page.goto("/reportes");
   await page
-    .getByRole("button", { name: "Movimientos de Kardex", exact: true })
+    .getByRole("tab", { name: "Movimientos de Kardex", exact: true })
     .click();
   await expect(page.locator("tbody tr")).not.toHaveCount(0);
 });
@@ -218,7 +233,7 @@ test("shared supplier catalog is available in purchase creation", async ({
   page,
 }) => {
   await page.goto("/mantenimientos");
-  await page.getByRole("button", { name: "Proveedores", exact: true }).click();
+  await page.getByRole("tab", { name: "Proveedores", exact: true }).click();
   await page.getByRole("button", { name: "Nuevo proveedor" }).click();
   const dialog = page.getByRole("dialog");
   await dialog
@@ -258,10 +273,10 @@ test("mobile navigation, search shortcut, dark mode and responsive layout", asyn
   ).toBeTruthy();
   await page.getByRole("button", { name: "Abrir o cerrar menú" }).click();
   await page
-    .getByRole("link", { name: "Movimiento de Kardex", exact: true })
+    .getByRole("link", { name: "Movimientos de Kardex", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Movimiento de Kardex", exact: true }),
+    page.getByRole("heading", { name: "Movimientos de Kardex", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Control+k");
   await page.getByLabel("Buscar módulos o documentos").fill("Stock");

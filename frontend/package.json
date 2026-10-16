@@ -6,15 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test tests/model.test.mjs tests/catalog.test.mjs tests/products.test.mjs tests/dashboard.test.mjs",
+    "test": "node --test tests/model.test.mjs tests/catalog.test.mjs tests/products.test.mjs tests/dashboard.test.mjs tests/sales-documents.test.mjs tests/operation-cleanup.test.mjs",
     "test:browser": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "@vitejs/plugin-react": "latest",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.54.0",
     "react": "latest",
     "react-dom": "latest",
+    "super-beautiful-toast": "^0.1.0",
     "typescript": "latest",
     "vite": "latest"
   },

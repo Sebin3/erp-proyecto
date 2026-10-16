@@ -1,6 +1,6 @@
 import { SupplierDetailsTrigger } from "./suppliers";
 import { ProductDetailsTrigger } from "./products";
-import { PayablesPanel } from "./payables";
+import { InvoiceCreationModal } from "./sales-documents";
 import { ReceivingPage, ReceiptModal } from "./receiving";
 import { useState, type ReactNode } from "react";
 import { Icon } from "./icons";
@@ -9,90 +9,107 @@ import {
   changeQuote,
   createDocument,
   dateLabel,
-  invoice,
-  isCredit,
   money,
   pay,
+  nextPaymentReference,
   paymentMethods,
-  receive,
   saveQuote,
   stockOf,
+  quantityRound,
   today,
-  vouchers,
   type Document,
   type Quote,
 } from "./model";
 import {
   DocDetail,
-  exportCsv,
+  ExportMenu,
   Metrics,
   Modal,
   OrderEditor,
   Records,
   Tag,
 } from "./ui";
+import { toast } from "./toast";
+import { useDailyDateFilter } from "./daily-filter";
 export const routes = [
   {
     group: "Inicio",
-    name: "Panel de control",
+    name: "Resumen ejecutivo",
     path: "/dashboard",
     icon: "dashboard",
   },
   {
-    group: "Compras",
-    name: "Orden de compra",
+    group: "Abastecimiento",
+    name: "Órdenes de compra",
     path: "/orden-compra",
     icon: "purchase",
   },
   {
-    group: "Compras",
+    group: "Abastecimiento",
     name: "Ingreso al Kardex",
     path: "/ingreso-kardex",
     icon: "receive",
   },
-  { group: "Ventas", name: "Cotización", path: "/cotizacion", icon: "quote" },
   {
-    group: "Ventas",
-    name: "Orden de venta",
+    group: "Comercial",
+    name: "Cotizaciones",
+    path: "/cotizacion",
+    icon: "quote",
+  },
+  {
+    group: "Comercial",
+    name: "Pedidos de venta",
     path: "/orden-venta",
     icon: "sale",
   },
   {
-    group: "Ventas",
-    name: "Facturación",
+    group: "Comercial",
+    name: "Facturación y comprobantes",
     path: "/facturacion",
     icon: "invoice",
   },
   {
-    group: "Ventas",
-    name: "Estado de cuenta",
+    group: "Comercial",
+    name: "Cuentas por cobrar",
     path: "/estado-cuenta",
     icon: "wallet",
   },
   {
-    group: "Inventarios",
-    name: "Movimiento de Kardex",
+    group: "Inventario",
+    name: "Movimientos de Kardex",
     path: "/movimiento-kardex",
     icon: "movement",
   },
   {
-    group: "Inventarios",
+    group: "Inventario",
     name: "Stock de productos",
     path: "/stock-productos",
     icon: "stock",
   },
   {
-    group: "Administración",
-    name: "Reportes",
+    group: "Gestión",
+    name: "Analítica y reportes",
     path: "/reportes",
     icon: "report",
   },
   {
-    group: "Administración",
+    group: "Gestión",
     name: "Mantenimientos",
     path: "/mantenimientos",
     icon: "settings",
   },
+  {
+    group: "Administración",
+    name: "Administración",
+    path: "/administracion/usuarios",
+    icon: "shield",
+  },
+];
+export const administrationRoutes = [
+  { name: "Usuarios", path: "/administracion/usuarios", icon: "users" },
+  { name: "Roles", path: "/administracion/roles", icon: "shield" },
+  { name: "Permisos", path: "/administracion/permisos", icon: "shield" },
+  { name: "Auditoría", path: "/administracion/auditoria", icon: "report" },
 ];
 const descriptions: Record<string, string> = {
   "orden-compra":
@@ -130,13 +147,12 @@ function Head({
 }
 export function Operations({ view }: { view: string }) {
   const { state, transact } = useErp();
-  const [date, setDate] = useState("");
+  const [date, setDate] = useDailyDateFilter();
   const [status, setStatus] = useState("Todos");
   const [warehouse, setWarehouse] = useState("Todos");
   const [editor, setEditor] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [action, setAction] = useState<Document | null>(null);
-  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   if (view === "ingreso-kardex") return <ReceivingPage />;
   const name = routes.find((r) => r.path === `/${view}`)?.name ?? view;
@@ -147,6 +163,11 @@ export function Operations({ view }: { view: string }) {
     state.warehouses.find((w) => w.id === id)?.name ?? id;
   const productName = (id: string) =>
     state.products.find((p) => p.id === id)?.name ?? id;
+  const sourceNumber = (id?: string) =>
+    id
+      ? (state.documents.find((d) => d.id === id)?.number ??
+        state.quotes.find((q) => q.id === id)?.number)
+      : undefined;
   const oc = state.documents.filter((d) => d.kind === "OC"),
     ov = state.documents.filter((d) => d.kind === "OV"),
     cp = state.documents.filter((d) => d.kind === "CP");
@@ -156,7 +177,7 @@ export function Operations({ view }: { view: string }) {
   const awaiting = ov.filter((d) => d.status === "Pendiente");
   let metrics: [string, string | number][] = [];
   let headers: string[] = [];
-  let csv: (string | number)[][] = [];
+  let exportRows: (string | number)[][] = [];
   let rows: { id: string; cells: ReactNode[]; search: string }[] = [];
   let filterOptions: string[] = [];
   if (view === "movimiento-kardex") {
@@ -195,7 +216,7 @@ export function Operations({ view }: { view: string }) {
       "Saldo",
       "Acciones",
     ];
-    csv = data.map((m) => [
+    exportRows = data.map((m) => [
       dateLabel(m.date),
       state.documents.find((d) => d.id === m.documentId)?.number ?? "",
       m.type,
@@ -207,10 +228,10 @@ export function Operations({ view }: { view: string }) {
     ]);
     rows = data.map((m, i) => ({
       id: m.id,
-      search: `${m.productId} ${csv[i].join(" ")}`,
+      search: `${m.productId} ${exportRows[i].join(" ")}`,
       cells: [
         dateLabel(m.date),
-        csv[i][1],
+        exportRows[i][1],
         <Tag value={m.type === "Entrada" ? "Compra" : "Venta"} />,
         <>
           <ProductDetailsTrigger
@@ -250,7 +271,7 @@ export function Operations({ view }: { view: string }) {
         );
         const quantity =
           warehouse === "Todos"
-            ? quantities.reduce((s, n) => s + n, 0)
+            ? quantityRound(quantities.reduce((s, n) => s + n, 0))
             : stockOf(state, p.id, warehouse);
         return {
           p,
@@ -259,7 +280,7 @@ export function Operations({ view }: { view: string }) {
           status:
             quantity === 0
               ? "Sin stock"
-              : quantity < p.minimum
+              : quantity <= p.minimum
                 ? "Stock bajo"
                 : "Disponible",
         };
@@ -267,8 +288,8 @@ export function Operations({ view }: { view: string }) {
       .filter((r) => status === "Todos" || r.status === status);
     metrics = [
       ["Productos", data.length],
-      ["Unidades", data.reduce((s, r) => s + r.quantity, 0)],
-      ["Bajo el mínimo", data.filter((r) => r.quantity < r.p.minimum).length],
+      ["Unidades", quantityRound(data.reduce((s, r) => s + r.quantity, 0))],
+      ["En mínimo o por debajo", data.filter((r) => r.quantity <= r.p.minimum).length],
       [
         "Valor al costo",
         money(data.reduce((s, r) => s + r.quantity * r.p.cost, 0)),
@@ -283,13 +304,13 @@ export function Operations({ view }: { view: string }) {
       "Valor al costo",
       "Estado",
     ];
-    csv = data.map((r) => [
+    exportRows = data.map((r) => [
       r.p.id,
       r.p.name,
       ...r.quantities,
-      r.quantities.reduce((s, n) => s + n, 0),
+      quantityRound(r.quantities.reduce((s, n) => s + n, 0)),
       r.p.minimum,
-      r.quantities.reduce((s, n) => s + n, 0) * r.p.cost,
+      quantityRound(r.quantities.reduce((s, n) => s + n, 0)) * r.p.cost,
       r.status,
     ]);
     rows = data.map((r) => ({
@@ -309,9 +330,9 @@ export function Operations({ view }: { view: string }) {
           </small>
         </>,
         ...r.quantities,
-        r.quantities.reduce((s, n) => s + n, 0),
+        quantityRound(r.quantities.reduce((s, n) => s + n, 0)),
         r.p.minimum,
-        money(r.quantities.reduce((s, n) => s + n, 0) * r.p.cost),
+        money(quantityRound(r.quantities.reduce((s, n) => s + n, 0)) * r.p.cost),
         <Tag value={r.status} />,
       ],
     }));
@@ -324,10 +345,9 @@ export function Operations({ view }: { view: string }) {
           : view === "orden-venta"
             ? "OV"
             : "CP";
-    let data = state.documents.filter(
-      (d) =>
-        d.kind === kind && (view !== "estado-cuenta" || isCredit(d.method)),
-    );
+    // Every issued invoice is collectible until its payments are registered,
+    // including cash and bank-transfer sales.
+    let data = state.documents.filter((d) => d.kind === kind);
     filterOptions = [...new Set(data.map((d) => d.status))];
     data = data.filter(
       (d) =>
@@ -412,7 +432,7 @@ export function Operations({ view }: { view: string }) {
       "Estado",
       "Acciones",
     ];
-    csv = data.map((d) => [
+    exportRows = data.map((d) => [
       d.number,
       dateLabel(d.date),
       partyName(d.partyId),
@@ -424,15 +444,12 @@ export function Operations({ view }: { view: string }) {
     ]);
     rows = data.map((d) => ({
       id: d.id,
-      search: `${d.number} ${partyName(d.partyId)} ${[...state.customers, ...state.suppliers].find((p) => p.id === d.partyId)?.taxId} ${state.documents.find((x) => x.id === d.sourceId)?.number ?? ""}`,
+      search: `${d.number} ${partyName(d.partyId)} ${[...state.customers, ...state.suppliers].find((p) => p.id === d.partyId)?.taxId} ${sourceNumber(d.sourceId) ?? ""}`,
       cells: [
         <>
           <b>{d.number}</b>
-          {d.demo && <small>DEMO · operación simulada</small>}
-          {d.sourceId && (
-            <small>
-              Ref. {state.documents.find((x) => x.id === d.sourceId)?.number}
-            </small>
+          {sourceNumber(d.sourceId) && (
+            <small>Ref. {sourceNumber(d.sourceId)}</small>
           )}
         </>,
         dateLabel(d.date),
@@ -474,7 +491,7 @@ export function Operations({ view }: { view: string }) {
     }));
   }
   const actualFilters = (
-    <>
+    <div className="table-filter-controls">
       {view !== "stock-productos" && (
         <label className="filter-field">
           Fecha
@@ -518,8 +535,18 @@ export function Operations({ view }: { view: string }) {
       >
         Limpiar
       </button>
-    </>
+    </div>
   );
+
+  const exportProfile =
+    view === "movimiento-kardex"
+      ? "kardex"
+      : view === "estado-cuenta"
+        ? "account"
+        : view === "stock-productos"
+          ? "catalog"
+          : "document";
+  const exportSummary = metrics.map(([label, value]) => ({ label, value }));
 
   return (
     <>
@@ -528,19 +555,18 @@ export function Operations({ view }: { view: string }) {
         description={descriptions[view]}
         actions={
           <>
-            <button
-              className="secondary-btn"
-              onClick={() =>
-                exportCsv(
-                  view,
-                  headers.filter((h) => h !== "Acciones"),
-                  csv,
-                )
-              }
-            >
-              <Icon name="download" size={15} />
-              Exportar CSV
-            </button>
+            <ExportMenu
+              data={{
+                name: view,
+                title: name,
+                profile: exportProfile,
+                company: { name: state.settings.company },
+                subtitle: descriptions[view],
+                summary: exportSummary,
+                headers: headers.filter((h) => h !== "Acciones"),
+                rows: exportRows,
+              }}
+            />
             {["orden-compra", "orden-venta"].includes(view) && (
               <button
                 className="btn"
@@ -554,11 +580,6 @@ export function Operations({ view }: { view: string }) {
           </>
         }
       />
-      {notice && (
-        <p className="notice" role="status">
-          {notice}
-        </p>
-      )}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -596,35 +617,12 @@ export function Operations({ view }: { view: string }) {
           ))}
         </section>
       )}
-      <div className="operational-layout">
-        <div>
-          <Records
-            headers={headers}
-            rows={rows}
-            filters={actualFilters}
-            searchText="Buscar documento, producto, cliente o proveedor…"
-          />
-        </div>
-        <aside className="card summary-panel">
-          <h2>Resumen financiero</h2>
-          <small>Total órdenes de compra</small>
-          <b>{money(oc.reduce((s, d) => s + d.total, 0))}</b>
-          <small>Total ventas facturadas</small>
-          <b>{money(cp.reduce((s, d) => s + d.total, 0))}</b>
-          <small>Saldo por cobrar</small>
-          <b>{money(cp.reduce((s, d) => s + d.balance, 0))}</b>
-          <hr />
-          <h2>Operación integrada</h2>
-          <p className="muted">
-            Recibir compras genera entradas. Facturar ventas genera salidas.
-            Cobrar actualiza la deuda del cliente.
-          </p>
-          <small>
-            Los indicadores financieros muestran todo el historial. La tabla y
-            su exportación respetan fecha, estado y almacén.
-          </small>
-        </aside>
-      </div>
+      <Records
+        headers={headers}
+        rows={rows}
+        filters={actualFilters}
+        searchText="Buscar documento, producto, cliente o proveedor…"
+      />
       {editor && (
         <OrderEditor
           kind={view === "orden-compra" ? "OC" : "OV"}
@@ -634,7 +632,11 @@ export function Operations({ view }: { view: string }) {
               createDocument(s, draft);
             });
             setEditor(false);
-            setNotice("Orden creada correctamente.");
+            toast.success(
+              draft.kind === "OC"
+                ? "Orden de compra creada correctamente."
+                : "Orden de venta creada correctamente.",
+            );
           }}
         />
       )}
@@ -644,7 +646,19 @@ export function Operations({ view }: { view: string }) {
           onClose={() => setAction(null)}
           onComplete={() => {
             setAction(null);
-            setNotice("Ingreso registrado. Stock y Kardex actualizados.");
+            toast.success("Ingreso registrado. Stock y Kardex actualizados.");
+          }}
+        />
+      ) : action?.kind === "OV" ? (
+        <InvoiceCreationModal
+          doc={state.documents.find((d) => d.id === action.id)!}
+          onClose={() => setAction(null)}
+          onComplete={(id) => {
+            setAction(null);
+            setDetail(id);
+            toast.success(
+              "Comprobante registrado. Inventario y Kardex actualizados.",
+            );
           }}
         />
       ) : (
@@ -654,14 +668,15 @@ export function Operations({ view }: { view: string }) {
             onClose={() => setAction(null)}
             onComplete={() => {
               setAction(null);
-              setNotice(
-                "Operación registrada. Inventario y documentos actualizados.",
+              toast.success(
+                action?.kind === "OV"
+                  ? "Venta facturada. Inventario y documentos actualizados."
+                  : "Cobro registrado. La deuda del cliente fue actualizada.",
               );
             }}
           />
         )
       )}
-      {view === "estado-cuenta" && <PayablesPanel />}
       {detail && state.documents.find((d) => d.id === detail) && (
         <DocDetail
           doc={state.documents.find((d) => d.id === detail)!}
@@ -682,38 +697,19 @@ function ActionModal({
 }) {
   const { state, transact } = useErp();
   const [date, setDate] = useState(today());
-  const [warehouse, setWarehouse] = useState(doc.warehouseId);
-  const [voucher, setVoucher] = useState(doc.voucher || vouchers[0]);
   const [amount, setAmount] = useState(doc.balance);
   const [method, setMethod] = useState(paymentMethods[0]);
-  const [reference, setReference] = useState("");
+  const reference = nextPaymentReference(state);
   const [error, setError] = useState("");
-  const [quantities, setQuantities] = useState<Record<string, number>>(() =>
-    Object.fromEntries(
-      doc.lines.map((l) => [
-        l.productId,
-        l.quantity - (doc.received?.[l.productId] ?? 0),
-      ]),
-    ),
-  );
-  const title =
-    doc.kind === "OC"
-      ? "Recibir compra"
-      : doc.kind === "OV"
-        ? "Facturar venta"
-        : "Registrar cobro";
   return (
-    <Modal title={`${title} · ${doc.number}`} onClose={onClose} wide>
+    <Modal title={`Registrar cobro · ${doc.number}`} onClose={onClose} wide className="collection-modal">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           try {
-            transact((s) => {
-              if (doc.kind === "OC")
-                receive(s, doc.id, quantities, warehouse, date);
-              else if (doc.kind === "OV") invoice(s, doc.id, voucher, date);
-              else pay(s, doc.id, { date, amount, method, reference });
-            });
+            transact((s) =>
+              pay(s, doc.id, { date, amount, method }),
+            );
             onComplete();
           } catch (err) {
             setError(
@@ -727,6 +723,10 @@ function ActionModal({
             {error}
           </p>
         )}
+        <div className="collection-summary">
+          <div><span>Comprobante</span><strong>{doc.number}</strong><small>{state.customers.find((c) => c.id === doc.partyId)?.name}</small></div>
+          <div><span>Saldo pendiente</span><strong>{money(doc.balance)}</strong></div>
+        </div>
         <div className="form-grid">
           <label>
             Fecha
@@ -737,123 +737,45 @@ function ActionModal({
               onChange={(e) => setDate(e.target.value)}
             />
           </label>
-          {doc.kind === "OC" ? (
-            <label>
-              Almacén de recepción
-              <select
-                value={warehouse}
-                onChange={(e) => setWarehouse(e.target.value)}
-              >
-                {state.warehouses
-                  .filter((w) => w.active)
-                  .map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          ) : doc.kind === "OV" ? (
-            <label>
-              Comprobante
-              <select
-                value={voucher}
-                onChange={(e) => setVoucher(e.target.value)}
-              >
-                {vouchers.map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <>
-              <label>
-                Importe a cobrar
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max={doc.balance}
-                  required
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                />
-              </label>
-              <label>
-                Medio de pago
-                <select
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value)}
-                >
-                  {paymentMethods.map((m) => (
-                    <option key={m}>{m}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Referencia de operación
-                <input
-                  required
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                />
-              </label>
-            </>
-          )}
+          <label>
+            Importe a cobrar
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={doc.balance}
+              required
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Medio de pago
+            <select value={method} onChange={(e) => setMethod(e.target.value)}>
+              {paymentMethods.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Referencia de operación
+            <input
+              readOnly
+              value={reference}
+              aria-describedby="collection-reference-help"
+            />
+            <small id="collection-reference-help">Referencia interna generada al confirmar el cobro.</small>
+          </label>
         </div>
-        {doc.kind === "OC" && (
-          <div className="tw">
-            <table>
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Ordenado</th>
-                  <th>Recibido</th>
-                  <th>Recibir ahora</th>
-                </tr>
-              </thead>
-              <tbody>
-                {doc.lines.map((l) => (
-                  <tr key={l.productId}>
-                    <td>
-                      {state.products.find((p) => p.id === l.productId)?.name}
-                    </td>
-                    <td>{l.quantity}</td>
-                    <td>{doc.received?.[l.productId] ?? 0}</td>
-                    <td>
-                      <input
-                        type="number"
-                        aria-label={`Recibir ${l.productId}`}
-                        min="0"
-                        step="0.001"
-                        max={l.quantity - (doc.received?.[l.productId] ?? 0)}
-                        value={quantities[l.productId]}
-                        onChange={(e) =>
-                          setQuantities((q) => ({
-                            ...q,
-                            [l.productId]: Number(e.target.value),
-                          }))
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
         <p className="muted">
-          {doc.kind === "OC"
-            ? "Se generará una nota de ingreso y aumentará el stock del almacén seleccionado. Puedes completar el remanente en otra recepción."
-            : doc.kind === "OV"
-              ? `Se emitirá el comprobante por ${money(doc.total)} y se descontará el stock. ${isCredit(doc.method) ? "La venta quedará pendiente de cobro." : "El pago al contado quedará registrado."}`
-              : `Saldo actual: ${money(doc.balance)}. El cobro actualizará la deuda del cliente.`}
+          El cobro actualizará la deuda del
+          cliente.
         </p>
         <div className="modal-actions">
           <button type="button" className="secondary-btn" onClick={onClose}>
             Cancelar
           </button>
-          <button className="btn">Confirmar {title.toLowerCase()}</button>
+          <button className="btn">Confirmar registrar cobro</button>
         </div>
       </form>
     </Modal>
@@ -861,24 +783,24 @@ function ActionModal({
 }
 export function Quotes() {
   const { state, transact } = useErp();
+  const [date, setDate] = useDailyDateFilter();
   const [status, setStatus] = useState("Todas");
   const [editor, setEditor] = useState<Quote | true | null>(null);
   const [detail, setDetail] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [confirm, setConfirm] = useState<{
     quote: Quote;
     action: "send" | "reject" | "accept";
   } | null>(null);
   const data = state.quotes.filter(
-    (q) => status === "Todas" || q.status === status,
+    (q) => (!date || q.date === date) && (status === "Todas" || q.status === status),
   );
   const party = (id: string) =>
     state.customers.find((c) => c.id === id)?.name ?? id;
   return (
     <>
       <Head
-        title="Cotización"
+        title="Cotizaciones"
         description="Prepara propuestas, registra la aceptación y convierte cada cotización en una venta."
         actions={
           <button
@@ -893,11 +815,11 @@ export function Quotes() {
       />
       <div className="process-flow">
         {[
-          "Cotización",
+          "Cotizaciones",
           "Aceptación del cliente",
-          "Orden de venta",
-          "Facturación",
-          "Estado de cuenta",
+          "Pedidos de venta",
+          "Facturación y comprobantes",
+          "Cuentas por cobrar",
         ].map((step, i) => (
           <span key={step}>
             <b>{i + 1}</b>
@@ -908,11 +830,6 @@ export function Quotes() {
       {error && (
         <p className="error" role="alert">
           {error}
-        </p>
-      )}
-      {notice && (
-        <p className="notice" role="status">
-          {notice}
         </p>
       )}
       <Metrics
@@ -932,6 +849,8 @@ export function Quotes() {
           "Acciones",
         ]}
         filters={
+          <div className="table-filter-controls">
+          <label className="filter-field">Fecha<input aria-label="Filtrar por fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
           <select
             aria-label="Estado de cotización"
             value={status}
@@ -943,6 +862,8 @@ export function Quotes() {
               ),
             )}
           </select>
+          <button className="secondary-btn" onClick={() => { setDate(""); setStatus("Todas"); }}>Limpiar</button>
+          </div>
         }
         rows={data.map((q) => ({
           id: q.id,
@@ -1002,20 +923,40 @@ export function Quotes() {
             </div>,
           ],
         }))}
-        onExport={() =>
-          exportCsv(
-            "cotizaciones",
-            ["Número", "Fecha", "Cliente", "Vigencia", "Total", "Estado"],
-            data.map((q) => [
-              q.number,
-              q.date,
-              party(q.partyId),
-              q.validity,
-              q.total,
-              q.status,
-            ]),
-          )
-        }
+        exportData={{
+          name: "cotizaciones",
+          title: "Cotizaciones",
+          profile: "quote",
+          company: { name: state.settings.company },
+          subtitle: "Propuestas comerciales y vigencia de cada oferta.",
+          summary: [
+            { label: "Total de cotizaciones", value: data.length },
+            {
+              label: "Aceptadas",
+              value: data.filter((q) => q.status === "Aceptada").length,
+            },
+            {
+              label: "Importe ofertado",
+              value: data.reduce((sum, q) => sum + q.total, 0),
+            },
+          ],
+          headers: [
+            "Número",
+            "Fecha",
+            "Cliente",
+            "Vigencia",
+            "Total",
+            "Estado",
+          ],
+          rows: data.map((q) => [
+            q.number,
+            q.date,
+            party(q.partyId),
+            q.validity,
+            q.total,
+            q.status,
+          ]),
+        }}
       />
       {editor && (
         <OrderEditor
@@ -1023,6 +964,7 @@ export function Quotes() {
           quote={editor === true ? undefined : editor}
           onClose={() => setEditor(null)}
           onSave={(draft, validity) => {
+            const editingQuote = editor !== true;
             transact((s) => {
               saveQuote(
                 s,
@@ -1031,7 +973,11 @@ export function Quotes() {
               );
             });
             setEditor(null);
-            setNotice("Cotización guardada.");
+            toast.success(
+              editingQuote
+                ? "Cotización actualizada correctamente."
+                : "Cotización guardada correctamente.",
+            );
           }}
         />
       )}
@@ -1068,7 +1014,15 @@ export function Quotes() {
                   transact((s) =>
                     changeQuote(s, confirm.quote.id, confirm.action),
                   );
-                  setNotice("Cotización actualizada.");
+                  if (confirm.action === "send") {
+                    toast.info("Cotización enviada.");
+                  } else if (confirm.action === "accept") {
+                    toast.success(
+                      "Cotización aceptada y orden de venta creada.",
+                    );
+                  } else {
+                    toast.warning("Cotización devuelta a borrador.");
+                  }
                   setError("");
                   setConfirm(null);
                 } catch (e) {

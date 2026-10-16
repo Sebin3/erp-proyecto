@@ -133,4 +133,8 @@ export const moduleIcon: Record<string, IconName> = {
   "/stock-productos": "stock",
   "/reportes": "report",
   "/mantenimientos": "settings",
+  "/administracion/usuarios": "shield",
+  "/administracion/roles": "shield",
+  "/administracion/permisos": "shield",
+  "/administracion/auditoria": "report",
 };

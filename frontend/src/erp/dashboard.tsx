@@ -1,14 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import {
   ShoppingCart,
   TrendingUp,
   PackageX as PackageWarning,
   ChartNoAxesCombined,
   ArrowUpRight,
-  Download,
   Wallet,
-  Landmark,
-  RefreshCw,
+  ReceiptText,
   Ellipsis,
   Eye,
   ArrowRight,
@@ -17,13 +15,11 @@ import {
 import { useErp } from "./store";
 import {
   dashboardData,
-  chartBuckets,
-  type ChartPeriod,
+  dailyChartBuckets,
 } from "./dashboard-data";
 import { money, dateLabel, today } from "./model";
-import { Records, Tag, DocDetail, exportCsv } from "./ui";
+import { ExportMenu, Records, Tag, DocDetail } from "./ui";
 import { ProductDetailsTrigger } from "./products";
-import { PayableDetails } from "./payables";
 
 function OrderActions({
   id,
@@ -74,256 +70,268 @@ function OrderActions({
     </>
   );
 }
-function ExecutiveChart({ period }: { period: ChartPeriod }) {
+// Monotone cubic interpolation keeps curves inside adjacent values.
+function chartCurve(points: {x: number; y: number}[]) {
+  if (!points.length) return "";
+  const slopes = points.slice(1).map((p, i) => (p.y - points[i].y) / (p.x - points[i].x));
+  const tangents = points.map((_, i) => {
+    if (i === 0) return slopes[0] ?? 0;
+    if (i === points.length - 1) return slopes.at(-1) ?? 0;
+    const a = slopes[i - 1], b = slopes[i];
+    return a * b <= 0 ? 0 : Math.sign(a) * Math.min(Math.abs((a + b) / 2), 2 * Math.abs(a), 2 * Math.abs(b));
+  });
+  return `M ${points[0].x} ${points[0].y}` + points.slice(1).map((p, i) => {
+    const before = points[i], dx = (p.x - before.x) / 3;
+    return ` C ${before.x + dx} ${before.y + dx * tangents[i]}, ${p.x - dx} ${p.y - dx * tangents[i + 1]}, ${p.x} ${p.y}`;
+  }).join("");
+}
+function ExecutiveChart() {
   const { state } = useErp();
-  const data = chartBuckets(state, period);
+  const data = dailyChartBuckets(state);
+  const gradient = useId();
   const [active, setActive] = useState<number | null>(null);
   const [width, setWidth] = useState(900);
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const observer = new ResizeObserver(([entry]) =>
-      setWidth(Math.max(300, entry.contentRect.width)),
-    );
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(280, entry.contentRect.width)));
     if (root.current) observer.observe(root.current);
     return () => observer.disconnect();
   }, []);
-  useEffect(() => setActive(null), [period]);
   const max = Math.max(1, ...data.flatMap((d) => [d.sales, d.buys]));
-  const ceiling = Math.ceil(max / 4) * 4;
-  const left = 54,
-    right = 10,
-    top = 18,
-    bottom = 42,
-    height = 265;
-  const plotHeight = height - top - bottom,
-    step = (width - left - right) / data.length;
-  const barWidth = Math.min(24, step * 0.23);
+  const magnitude = 10 ** Math.floor(Math.log10(max));
+  const ceiling = Math.ceil(max / magnitude) * magnitude;
+  const left = 54, right = 20, top = 18, height = 265, bottom = 42;
+  const plotHeight = height - top - bottom, baseline = top + plotHeight;
+  const step = (width - left - right) / Math.max(1, data.length - 1);
+  const points = (key: "sales" | "buys") => data.map((d, i) => ({x: data.length === 1 ? (left + width - right) / 2 : left + i * step, y: baseline - d[key] / ceiling * plotHeight}));
+  const sales = points("sales"), buys = points("buys");
   const selected = active === null ? null : data[active];
-  const compact = (n: number) =>
-    new Intl.NumberFormat("es-PE", {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(n);
-  return (
-    <div className="ed-chart" ref={root}>
-      <div className="ed-legend">
-        <span>
-          <i />
-          Ventas facturadas
-        </span>
-        <span>
-          <i />
-          Órdenes de compra
-        </span>
-        <small>
-          Importes con IGV ·{" "}
-          {period === "Semanal"
-            ? "Últimas 8 semanas"
-            : period === "Mensual"
-              ? "Últimos 6 meses"
-              : "Últimos 4 trimestres"}
-        </small>
-      </div>
-      <svg
-        className="enterprise-chart"
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={`Ventas y compras: agrupación ${period.toLowerCase()}`}
-      >
-        {[0, 1, 2, 3, 4].map((i) => (
-          <g key={i}>
-            <line
-              x1={left}
-              x2={width - right}
-              y1={top + (plotHeight * i) / 4}
-              y2={top + (plotHeight * i) / 4}
-              stroke="#edf0f4"
-            />
-            <text
-              x={left - 8}
-              y={top + (plotHeight * i) / 4 + 4}
-              textAnchor="end"
-              fill="#94a3b8"
-              fontSize="10"
-            >
-              S/ {compact((ceiling * (4 - i)) / 4)}
-            </text>
-          </g>
-        ))}
-        {data.map((d, i) => {
-          const x = left + step * (i + 0.5);
-          return (
-            <g key={d.start} className="chart-bar-pair">
-              <rect
-                x={x - barWidth - 3}
-                y={top + plotHeight - (d.sales / ceiling) * plotHeight}
-                width={barWidth}
-                height={(d.sales / ceiling) * plotHeight}
-                rx="4"
-                fill="#6587be"
-                className="ed-bar"
-              />
-              <rect
-                x={x + 3}
-                y={top + plotHeight - (d.buys / ceiling) * plotHeight}
-                width={barWidth}
-                height={(d.buys / ceiling) * plotHeight}
-                rx="4"
-                fill="#6aa99b"
-                className="ed-bar"
-              />
-              <text
-                x={x}
-                y={height - 15}
-                textAnchor="middle"
-                fontSize={width < 450 ? "9" : "11"}
-                fill="#64748b"
-              >
-                {d.label}
-              </text>
-              <rect
-                tabIndex={0}
-                role="button"
-                aria-label={`${dateLabel(d.start)} al ${dateLabel(d.end)}: ventas ${money(d.sales)}, compras ${money(d.buys)}`}
-                x={x - step / 2 + 3}
-                y={top}
-                width={step - 6}
-                height={plotHeight}
-                fill="transparent"
-                onMouseEnter={() => setActive(i)}
-                onMouseLeave={() => setActive(null)}
-                onFocus={() => setActive(i)}
-                onBlur={() => setActive(null)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setActive(null);
-                }}
-              />
-            </g>
-          );
-        })}
-      </svg>
-      {selected && (
-        <div className="ed-tooltip chart-tooltip" role="status">
-          <strong>
-            {dateLabel(selected.start)} – {dateLabel(selected.end)}
-          </strong>
-          <span>
-            Ventas <b>{money(selected.sales)}</b>
-          </span>
-          <span>
-            Compras <b>{money(selected.buys)}</b>
-          </span>
-        </div>
-      )}
-      {data.every((d) => !d.sales && !d.buys) && (
-        <p className="ed-chart-empty">Sin operaciones en este período.</p>
-      )}
-    </div>
-  );
+  const compact = (n: number) => new Intl.NumberFormat("es-PE", {notation: "compact", maximumFractionDigits: 1}).format(n);
+  return <div className="ed-chart ed-line-chart" ref={root}>
+    <div className="ed-legend"><span><i />Ventas</span><span><i />Compras</span><small>Importes con IGV · {dateLabel(data[0].start)} – {dateLabel(data.at(-1)!.end)}</small></div>
+    <svg className="enterprise-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Ventas y compras diarias hasta ${dateLabel(data.at(-1)!.end)}`}>
+      <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--ed-chart-sales)" stopOpacity=".16" /><stop offset="100%" stopColor="var(--ed-chart-sales)" stopOpacity="0" /></linearGradient></defs>
+      {[0, 1, 2, 3, 4].map((i) => <g key={i}><line x1={left} x2={width - right} y1={top + plotHeight * i / 4} y2={top + plotHeight * i / 4} stroke="var(--line)" strokeDasharray="3 4" /><text x={left - 10} y={top + plotHeight * i / 4 + 4} textAnchor="end" fill="var(--mute)" fontSize="10">{compact(ceiling * (4 - i) / 4)}</text></g>)}
+      <path className="ed-sales-area" d={`${chartCurve(sales)} L ${sales.at(-1)!.x} ${baseline} L ${sales[0].x} ${baseline} Z`} fill={`url(#${gradient})`} />
+      <path className="ed-purchases-line" d={chartCurve(buys)} fill="none" stroke="var(--ed-chart-purchases)" strokeWidth="2" strokeDasharray="4 4" />
+      <path className="ed-sales-line" d={chartCurve(sales)} fill="none" stroke="var(--ed-chart-sales)" strokeWidth="2.5" />
+      {data.length === 1 && <g><circle cx={sales[0].x} cy={sales[0].y} r="4" fill="var(--ed-chart-sales)" /><circle cx={buys[0].x} cy={buys[0].y} r="3" fill="var(--ed-chart-purchases)" /></g>}
+      {active !== null && <g pointerEvents="none"><line x1={sales[active].x} x2={sales[active].x} y1={top} y2={baseline} stroke="var(--border-strong)" strokeDasharray="3 4" /><circle cx={sales[active].x} cy={sales[active].y} r="4" fill="var(--ed-chart-sales)" stroke="var(--panel)" strokeWidth="2" /><circle cx={buys[active].x} cy={buys[active].y} r="4" fill="var(--ed-chart-purchases)" stroke="var(--panel)" strokeWidth="2" /></g>}
+      {data.map((d, i) => {
+        const x = data.length === 1 ? (left + width - right) / 2 : left + step * i, start = Math.max(left, x - step / 2), end = Math.min(width - right, x + step / 2);
+        return <g key={d.start} className="chart-period-point">{(i === 0 || i === data.length - 1 || i % Math.max(1, Math.ceil(data.length / (width < 450 ? 4 : 8))) === 0 && i < data.length - 2) && <text x={x} y={height - 15} textAnchor="middle" fontSize={width < 450 ? "9" : "11"} fill="var(--mute)">{d.label}</text>}<rect tabIndex={0} role="button" aria-label={`${dateLabel(d.start)} al ${dateLabel(d.end)}: ventas ${money(d.sales)}, compras ${money(d.buys)}`} x={start} y={top} width={end - start} height={plotHeight} fill="transparent" onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(i)} onBlur={() => setActive(null)} onClick={() => setActive(i)} onKeyDown={(e) => {if (e.key === "Escape") setActive(null); if (e.key === "Enter" || e.key === " ") {e.preventDefault(); setActive(i);} }} /></g>;
+      })}
+    </svg>
+    {selected && <div className="ed-tooltip chart-tooltip" role="status"><strong>{dateLabel(selected.start)} – {dateLabel(selected.end)}</strong><span>Ventas <b>{money(selected.sales)}</b></span><span>Compras <b>{money(selected.buys)}</b></span></div>}
+    {data.every((d) => !d.sales && !d.buys) && <p className="ed-chart-empty">Sin operaciones en este período.</p>}
+    <div className="ed-chart-summary"><span>Total ventas<strong>{money(data.reduce((sum, d) => sum + d.sales, 0))}</strong></span><span>Total compras<strong>{money(data.reduce((sum, d) => sum + d.buys, 0))}</strong></span></div>
+  </div>;
 }
 export function Dashboard() {
   const { state } = useErp();
-  const data = dashboardData(state);
-  const [period, setPeriod] = useState<ChartPeriod>("Mensual");
+  const raw = dashboardData(state);
+  const data = {...raw, alerts: raw.receivables.filter((r) => r.overdue !== null && r.overdue >= -7).sort((a, b) => (b.overdue ?? 0) - (a.overdue ?? 0)).slice(0, 5).map((r) => ({...r, balance: r.doc.balance, type: "Cobrar"}))};
   const [detail, setDetail] = useState("");
-  const [payableDetail, setPayableDetail] = useState("");
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
   const labels = ["Vigente", "1–30 días", "31–60 días", "Más de 60 días"];
-  const demoCount = [...data.sales, ...data.purchases].filter(
-    (d) => d.demo,
-  ).length;
-  const exportDashboard = () =>
-    exportCsv(
-      "EnterpriseCloud-panel-" + today(),
+  const dashboardExportData = {
+    name: "panel-ejecutivo",
+    title: "Resumen ejecutivo",
+    profile: "dashboard" as const,
+    company: { name: state.settings.company },
+    subtitle: "Indicadores acumulados, cartera e inventario del negocio.",
+    summary: [
+      { label: "Ventas totales", value: data.salesTotal },
+      { label: "Compras totales", value: data.purchasesTotal },
+      {
+        label: "Utilidad bruta",
+        value: data.profit ?? "Sin datos suficientes",
+      },
+      { label: "Cuentas por cobrar", value: data.debt },
+    ],
+    sections: [
+      {
+        title: "Actividad comercial",
+        description:
+          "Acumulado de documentos válidos registrados en el período.",
+        items: [
+          {
+            label: "Ventas facturadas",
+            value: money(data.salesTotal),
+            detail: `${data.sales.length} comprobantes válidos`,
+          },
+          {
+            label: "Compras registradas",
+            value: money(data.purchasesTotal),
+            detail: `${data.purchases.length} órdenes válidas`,
+          },
+          {
+            label: "Utilidad bruta estimada",
+            value:
+              data.profit === null
+                ? "Sin datos suficientes"
+                : money(data.profit),
+            detail:
+              data.margin === null
+                ? "Requiere costos de salida completos"
+                : `Margen estimado ${data.margin.toFixed(1)}%`,
+          },
+        ],
+      },
+      {
+        title: "Cartera y obligaciones",
+        description: "Saldos pendientes que requieren seguimiento financiero.",
+        items: [
+          {
+            label: "Cuentas por cobrar",
+            value: money(data.debt),
+            detail: `${data.receivables.length} documentos con saldo · ${data.overdue} vencidos`,
+          },
+        ],
+      },
+      {
+        title: "Inventario y pedidos",
+        description:
+          "Existencias críticas y pedidos pendientes de facturación.",
+        items: [
+          {
+            label: "Productos con stock crítico",
+            value: data.criticalProducts,
+            detail: "Productos únicos en mínimo o por debajo del mínimo",
+          },
+          {
+            label: "Pedidos por facturar",
+            value: data.pendingInvoices.length,
+            detail: `Importe pendiente de facturación: ${money(data.pendingInvoiceTotal)}`,
+          },
+        ],
+      },
+      {
+        title: "Alertas de seguimiento",
+        description: "Documentos próximos a vencer o ya vencidos.",
+        items: data.alerts.length
+          ? data.alerts.slice(0, 5).map((alert) => ({
+              label: `${alert.type} · ${alert.doc.number}`,
+              value: money(alert.balance),
+              detail:
+                (alert.overdue ?? 0) > 0
+                  ? `${alert.overdue ?? 0} días vencidos`
+                  : "Próximo a vencer",
+            }))
+          : [
+              {
+                label: "Sin alertas activas",
+                value: "—",
+                detail: "No hay vencimientos próximos registrados",
+              },
+            ],
+      },
+    ],
+    charts: [
+      {
+        type: "donut" as const,
+        title: "Distribución comercial",
+        data: [
+          { label: "Ventas", value: data.salesTotal },
+          { label: "Compras", value: data.purchasesTotal },
+        ],
+      },
+      {
+        type: "bars" as const,
+        title: "Saldos pendientes",
+        data: [
+          { label: "Por cobrar", value: data.debt },
+        ],
+      },
+      {
+        type: "bars" as const,
+        title: "Inventario crítico",
+        data: [
+          { label: "Críticos", value: data.criticalProducts },
+          {
+            label: "Sin alerta",
+            value: Math.max(
+              0,
+              state.products.filter((product) => product.active).length -
+                data.criticalProducts,
+            ),
+          },
+        ],
+      },
+    ],
+    headers: [
+      "Sección",
+      "Indicador / documento",
+      "Importe / valor",
+      "Fecha / período",
+      "Origen",
+    ],
+    rows: [
       [
-        "Sección",
-        "Indicador / documento",
-        "Importe / valor",
-        "Fecha / período",
-        "Origen",
+        "Indicadores",
+        "Ventas totales",
+        data.salesTotal,
+        "Acumulado",
+        "CP válidos",
       ],
       [
-        [
-          "Indicadores",
-          "Ventas totales",
-          data.salesTotal,
-          "Acumulado",
-          "CP válidos",
-        ],
-        [
-          "Indicadores",
-          "Compras totales",
-          data.purchasesTotal,
-          "Acumulado",
-          "OC válidas",
-        ],
-        [
-          "Indicadores",
-          "Utilidad bruta estimada",
-          data.profit ?? "Sin datos suficientes",
-          "Acumulado",
-          "Kardex, IGV 18%",
-        ],
-        [
-          "Indicadores",
-          "Productos con stock crítico",
-          data.criticalProducts,
-          "Actual",
-          "Productos únicos por almacén",
-        ],
-        ["Finanzas", "Cuentas por cobrar", data.debt, "Saldo actual", "CP"],
-        [
-          "Finanzas",
-          "Cuentas por pagar",
-          data.hasPayableLedger ? data.payableDebt : "Sin datos suficientes",
-          "Actual",
-          "Registro de cuentas por pagar",
-        ],
-        [
-          "Inventario",
-          "Rotación",
-          data.rotation?.value ?? "Sin datos suficientes",
-          data.rotation
-            ? `${data.rotation.start} / ${data.rotation.end}`
-            : "Sin período comparable",
-          "Sin inventario promedio histórico",
-        ],
-        ...data.receivables.map((r) => [
-          "Cuentas por cobrar",
-          r.doc.number,
-          r.doc.balance,
-          r.due ?? "Sin vencimiento",
-          r.doc.demo ? "DEMO" : "Registrado",
-        ]),
-        ...data.payables.map((p) => [
-          "Cuentas por pagar",
-          `${p.account.id} · ${p.doc.number}`,
-          p.balance,
-          p.due,
-          p.account.demo ? "DEMO" : "Registrado",
-        ]),
-        ...(state.inventoryValuations ?? []).map((v) => [
-          "Inventario",
-          "Valoración registrada",
-          v.value,
-          v.date,
-          v.demo ? "DEMO" : "Registrado",
-        ]),
-        ...chartBuckets(state, period).flatMap((d) => [
-          ["Gráfico", "Ventas", d.sales, `${d.start} / ${d.end}`, period],
-          ["Gráfico", "Compras", d.buys, `${d.start} / ${d.end}`, period],
-        ]),
-        ...data.orders.map((d) => [
-          "Órdenes de venta",
-          d.number,
-          d.total,
-          d.date,
-          d.demo ? "DEMO" : d.status,
-        ]),
+        "Indicadores",
+        "Compras totales",
+        data.purchasesTotal,
+        "Acumulado",
+        "OC válidas",
       ],
-    );
+      [
+        "Indicadores",
+        "Utilidad bruta estimada",
+        data.profit ?? "Sin datos suficientes",
+        "Acumulado",
+        "Kardex, IGV 18%",
+      ],
+      [
+        "Indicadores",
+        "Productos con stock crítico",
+        data.criticalProducts,
+        "Actual",
+        "Productos únicos por almacén",
+      ],
+      ["Finanzas", "Cuentas por cobrar", data.debt, "Saldo actual", "CP"],
+      [
+        "Ventas",
+        "Pedidos por facturar",
+        data.pendingInvoices.length,
+        money(data.pendingInvoiceTotal),
+        "Pedidos pendientes hasta hoy",
+      ],
+      ...data.receivables.map((r) => [
+        "Cuentas por cobrar",
+        r.doc.number,
+        r.doc.balance,
+        r.due ?? "Sin vencimiento",
+        "Registrado",
+      ]),
+      ...(state.inventoryValuations ?? []).map((v) => [
+        "Inventario",
+        "Valoración registrada",
+        v.value,
+        v.date,
+        "Registrado",
+      ]),
+      ...dailyChartBuckets(state).flatMap((d) => [
+        ["Gráfico", "Ventas", d.sales, `${d.start} / ${d.end}`, "Diario"],
+        ["Gráfico", "Compras", d.buys, `${d.start} / ${d.end}`, "Diario"],
+      ]),
+      ...data.orders.map((d) => [
+        "Órdenes de venta",
+        d.number,
+        d.total,
+        d.date,
+        d.status,
+      ]),
+    ],
+  };
   const kpis = [
     {
       label: "Ventas totales",
@@ -367,17 +375,8 @@ export function Dashboard() {
           <h1>{greeting}, Administrador</h1>
           <p>Resumen general de las operaciones de EnterpriseCloud</p>
         </div>
-        <button className="secondary-btn" onClick={exportDashboard}>
-          <Download size={15} />
-          Exportar CSV
-        </button>
+        <ExportMenu data={dashboardExportData} />
       </header>
-      {demoCount > 0 && (
-        <p className="ed-demo-note">
-          Incluye {demoCount} operaciones DEMO, identificadas en los documentos.
-          Indicadores acumulados al {dateLabel(today())}.
-        </p>
-      )}
       <section className="ed-kpis" aria-label="Indicadores principales">
         {kpis.map((k) => (
           <article className="ed-kpi" key={k.label}>
@@ -450,94 +449,23 @@ export function Dashboard() {
         </article>
         <article className="ed-card">
           <div className="ed-card-title">
-            <span className="ed-icon teal">
-              <Landmark size={18} />
-            </span>
-            <h2>Cuentas por pagar</h2>
-            <a href="/estado-cuenta">
-              Ver detalle <ArrowUpRight size={13} />
-            </a>
+            <span className="ed-icon violet"><ReceiptText size={18} /></span>
+            <h2>Pedidos por facturar</h2>
           </div>
-          <strong
-            className={
-              data.hasPayableLedger ? "ed-finance-value" : "ed-unavailable"
-            }
-          >
-            {data.hasPayableLedger
-              ? money(data.payableDebt)
-              : "Sin datos suficientes"}
-          </strong>
-          <p className="ed-muted">
-            {data.hasPayableLedger
-              ? `${data.payables.length} cuentas pendientes · ${data.payableOverdue} vencidas${data.payables.some((p) => p.account.demo) ? " · Incluye DEMO" : ""}`
-              : "No hay un registro de deuda y pagos a proveedores."}
-          </p>
-          <div className="ed-aging">
-            {data.payableAging.map((amount, i) => (
-              <span
-                key={i}
-                className={`age-${i}`}
-                style={{ flex: amount || 0 }}
-                title={`${labels[i]}: ${money(amount)}`}
-              />
-            ))}
-          </div>
-          <div className="ed-aging-labels">
-            {labels.map((label, i) => (
-              <div key={label}>
-                <span>
-                  {label}
-                  <b>
-                    {data.hasPayableLedger ? money(data.payableAging[i]) : "—"}
-                  </b>
-                </span>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="ed-card">
-          <div className="ed-card-title">
-            <span className="ed-icon violet">
-              <RefreshCw size={18} />
-            </span>
-            <h2>Rotación de inventario</h2>
-          </div>
-          <strong
-            className={data.rotation ? "ed-finance-value" : "ed-unavailable"}
-          >
-            {data.rotation
-              ? `${data.rotation.value.toFixed(3)} veces`
-              : "Sin datos suficientes"}
-          </strong>
-          <p className="ed-muted">
-            {data.rotation
-              ? `${dateLabel(data.rotation.start)} – ${dateLabel(data.rotation.end)}${data.rotation.demo ? " · DEMO" : ""}. Costo de ventas ÷ inventario promedio ponderado en el tiempo.`
-              : "Costo de ventas ÷ inventario promedio. Falta una valorización histórica comparable del inventario."}
-          </p>
-          <a className="ed-text-link" href="/movimiento-kardex">
-            Consultar Kardex <ArrowRight size={14} />
-          </a>
+          <strong className="ed-finance-value">{data.pendingInvoices.length} {data.pendingInvoices.length === 1 ? "pedido pendiente" : "pedidos pendientes"}</strong>
+          <p className="ed-muted">Importe por facturar: <b>{money(data.pendingInvoiceTotal)}</b></p>
+          <p className="ed-muted">{data.pendingInvoices.length ? "Emite los comprobantes de estos pedidos para continuar con el cobro." : "Estás al día. No hay pedidos pendientes de facturación."}</p>
+          <a className="ed-text-link" href="/facturacion">Ir a facturación <ArrowRight size={14} /></a>
         </article>
       </section>
       <section className="ed-card ed-main-chart">
         <div className="ed-section-head">
           <div>
             <h2>Ventas vs. compras</h2>
-            <p>Comprobantes facturados y órdenes de compra válidas</p>
-          </div>
-          <div className="seg" aria-label="Período del gráfico">
-            {(["Semanal", "Mensual", "Trimestral"] as const).map((p) => (
-              <button
-                key={p}
-                aria-pressed={p === period}
-                onClick={() => setPeriod(p)}
-              >
-                {p}
-              </button>
-            ))}
+            <p>Ventas y compras del mes, hasta hoy {dateLabel(today())}</p>
           </div>
         </div>
-        <ExecutiveChart period={period} />
+        <ExecutiveChart />
       </section>
       <section className="ed-alerts">
         <article className="ed-card">
@@ -587,11 +515,7 @@ export function Dashboard() {
             <button
               className="ed-alert-row ed-account"
               key={r.doc.id}
-              onClick={() =>
-                r.payableId
-                  ? setPayableDetail(r.payableId)
-                  : setDetail(r.doc.id)
-              }
+              onClick={() => setDetail(r.doc.id)}
             >
               <span
                 className={`ed-alert-mark ${r.overdue! > 0 ? "danger" : "warning"}`}
@@ -606,7 +530,7 @@ export function Dashboard() {
                 </strong>
                 <small>
                   {r.doc.number} · {dateLabel(r.due!)} · Por{" "}
-                  {r.type.toLowerCase()} {r.doc.demo && "· DEMO"}
+                  {r.type.toLowerCase()}
                 </small>
               </div>
               <div className="ed-alert-number">
@@ -628,7 +552,7 @@ export function Dashboard() {
         <div className="ed-section-head">
           <div>
             <h2>Órdenes de venta recientes</h2>
-            <p>Consulta todas las órdenes, empezando por las más recientes</p>
+            <p>Órdenes registradas hoy, {dateLabel(today())}</p>
           </div>
           <a href="/orden-venta">
             Ver todas <ArrowUpRight size={14} />
@@ -661,7 +585,6 @@ export function Dashboard() {
                   onClick={() => setDetail(d.id)}
                 >
                   {d.number}
-                  {d.demo && <small>DEMO</small>}
                 </button>,
                 name,
                 dateLabel(d.date),
@@ -677,12 +600,6 @@ export function Dashboard() {
           })}
         />
       </section>
-      {payableDetail && (
-        <PayableDetails
-          id={payableDetail}
-          onClose={() => setPayableDetail("")}
-        />
-      )}
       {detail && state.documents.find((d) => d.id === detail) && (
         <DocDetail
           doc={state.documents.find((d) => d.id === detail)!}

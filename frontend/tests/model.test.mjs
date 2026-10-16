@@ -216,7 +216,7 @@ test("partial payment and settlement preserve stock and reject overpayment", () 
   assert.equal(cp.balance, 0);
   assert.equal(JSON.stringify(s.stock), stock);
 });
-test("cash invoice registers full payment and no receivable", () => {
+test("cash invoice remains invoiced until payment is registered", () => {
   const s = initialState(),
     d = draft(s);
   d.method = "Contado";
@@ -226,8 +226,13 @@ test("cash invoice registers full payment and no receivable", () => {
     "Boleta de venta electrónica",
     today(),
   );
+  assert.equal(cp.status, "Pendiente de pago");
+  assert.equal(cp.balance, cp.total);
+  assert.deepEqual(cp.payments, []);
+  assert.equal(cp.statusHistory.at(-1).status, "Pendiente de pago");
+  pay(s, cp.id, { date: today(), amount: cp.total, method: "Efectivo", reference: "Cobro" });
+  assert.equal(cp.status, "Pagada");
   assert.equal(cp.balance, 0);
-  assert.equal(cp.payments[0].amount, cp.total);
   assert.match(cp.number, /^B001-/);
 });
 test("quotation can propose out-of-stock goods but acceptance checks availability", () => {
@@ -310,4 +315,19 @@ test("serializing state retains documents, movement links, balances and quotatio
     new Set(copy.documents.map((d) => d.id)).size,
     copy.documents.length,
   );
+});
+
+test("collections generate unique internal references without manual input", () => {
+  const s = initialState(), d = draft(s);
+  d.method = "Contado";
+  const order = createDocument(s, d);
+  const cp = invoice(s, order.id, d.voucher, today());
+  const half = Math.round(cp.total * 50) / 100;
+  pay(s, cp.id, { date: today(), amount: half, method: "Efectivo" });
+  assert.match(cp.payments[0].reference, /^COB-\d{6}$/);
+  assert.equal(cp.status, "Pago parcial");
+  pay(s, cp.id, { date: today(), amount: cp.balance, method: "Efectivo" });
+  assert.notEqual(cp.payments[0].reference, cp.payments[1].reference);
+  assert.equal(cp.status, "Pagada");
+  assert.equal(order.status, "Facturada");
 });

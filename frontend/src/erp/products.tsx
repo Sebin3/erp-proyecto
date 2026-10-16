@@ -63,7 +63,7 @@ export function ProductDetails({
           </div>
         )}
         <div>
-          <small>FICHA DEL PRODUCTO {product.demo && "· DEMO"}</small>
+          <small>FICHA DEL PRODUCTO</small>
           <h2>{product.name}</h2>
           <p>
             {product.id} · {product.category}
@@ -350,7 +350,6 @@ export function ProductSelectorModal({
                               {p.description}
                             </small>
                           )}
-                          {p.demo && <small className="ps-demo">DEMO</small>}
                         </td>
                         <td>
                           <span className="ps-badge" title={p.category}>

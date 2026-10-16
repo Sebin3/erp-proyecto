@@ -1,13 +1,18 @@
 import { Modal } from "./modal";
+import { SalesDocumentDetailsModal } from "./sales-documents";
 import { QuoteEditor } from "./quote-editor";
 export { Modal } from "./modal";
 import { SupplierSelector, SupplierDetailsTrigger } from "./suppliers";
 import { ProductSelectorModal, ProductDetailsTrigger } from "./products";
 import { appendProducts } from "./product-query";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useErp } from "./store";
 import { Icon, type IconName } from "./icons";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { toast } from "./toast";
+import { ExportMenu, type ExportData } from "./exports";
+export { ExportMenu } from "./exports";
+export type { ExportData } from "./exports";
 import {
   dateLabel,
   money,
@@ -83,38 +88,85 @@ export function Metrics({ items }: { items: [string, string | number][] }) {
     </div>
   );
 }
-export function exportCsv(
-  name: string,
-  headers: string[],
-  rows: (string | number)[][],
-) {
-  const escape = (v: string | number) => {
-    const text = String(v);
-    return `"${(/^[=+@\-]/.test(text) ? `'${text}` : text).replaceAll('"', '""')}"`;
+export function DragScroll({ children }: { children: ReactNode }) {
+  const root = useRef<HTMLDivElement>(null);
+  const drag = useRef({
+    active: false,
+    moved: false,
+    suppressClick: false,
+    startX: 0,
+    startScrollLeft: 0,
+  });
+
+  const stopDragging = (event: PointerEvent<HTMLDivElement>) => {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    drag.current.suppressClick = drag.current.moved;
+    event.currentTarget.classList.remove("is-dragging");
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
-  const url = URL.createObjectURL(
-    new Blob(
-      [
-        "\uFEFF" +
-          [headers, ...rows]
-            .map((row) => row.map(escape).join(","))
-            .join("\r\n"),
-      ],
-      { type: "text/csv;charset=utf-8" },
-    ),
+
+  return (
+    <div
+      ref={root}
+      className="tw"
+      onPointerDown={(event) => {
+        drag.current.suppressClick = false;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        if (
+          event.target instanceof HTMLElement &&
+          event.target.closest(
+            "button, a, input, select, textarea, label, [role='button']",
+          )
+        ) {
+          return;
+        }
+        if (
+          event.currentTarget.scrollWidth <= event.currentTarget.clientWidth
+        ) {
+          return;
+        }
+        drag.current = {
+          active: true,
+          moved: false,
+          suppressClick: false,
+          startX: event.clientX,
+          startScrollLeft: event.currentTarget.scrollLeft,
+        };
+        event.currentTarget.classList.add("is-dragging");
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!drag.current.active) return;
+        const distance = event.clientX - drag.current.startX;
+        if (Math.abs(distance) > 4) drag.current.moved = true;
+        if (drag.current.moved) {
+          event.preventDefault();
+          event.currentTarget.scrollLeft =
+            drag.current.startScrollLeft - distance;
+        }
+      }}
+      onPointerUp={stopDragging}
+      onPointerCancel={stopDragging}
+      onClickCapture={(event) => {
+        if (!drag.current.suppressClick) return;
+        event.preventDefault();
+        event.stopPropagation();
+        drag.current.suppressClick = false;
+      }}
+    >
+      {children}
+    </div>
   );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `enterprisecloud-${name}-${today()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 export function Records({
   headers,
   rows,
   searchText,
   filters,
-  onExport,
+  exportData,
   empty = "No hay registros que coincidan con los filtros.",
   sortable = false,
   loading = false,
@@ -130,7 +182,7 @@ export function Records({
   }[];
   searchText?: string;
   filters?: ReactNode;
-  onExport?: () => void;
+  exportData?: ExportData;
   empty?: string;
   sortable?: boolean;
   loading?: boolean;
@@ -191,15 +243,22 @@ export function Records({
           />
         </div>
         {filters}
-        <span>{filtered.length} registros</span>
-        {onExport && (
-          <button className="secondary-btn" onClick={onExport}>
-            <Icon name="download" size={15} />
-            Exportar CSV
+        {query && (
+          <button
+            type="button"
+            className="secondary-btn records-clear-search"
+            onClick={() => {
+              setQuery("");
+              setPage(0);
+            }}
+          >
+            Limpiar búsqueda
           </button>
         )}
+        <span>{filtered.length} registros</span>
+        {exportData && <ExportMenu data={exportData} />}
       </div>
-      <div className="tw">
+      <DragScroll>
         <table>
           <thead>
             <tr>
@@ -280,7 +339,7 @@ export function Records({
               ))}
           </tbody>
         </table>
-      </div>
+      </DragScroll>
       {loading && (
         <div
           role="status"
@@ -345,6 +404,19 @@ export function Records({
   );
 }
 export function DocDetail({
+  doc,
+  onClose,
+}: {
+  doc: Document;
+  onClose: () => void;
+}) {
+  return doc.kind === "OV" || doc.kind === "CP" ? (
+    <SalesDocumentDetailsModal doc={doc} onClose={onClose} />
+  ) : (
+    <LegacyDocDetail doc={doc} onClose={onClose} />
+  );
+}
+function LegacyDocDetail({
   doc,
   onClose,
 }: {
@@ -458,24 +530,66 @@ export function DocDetail({
         </>
       )}
       <div className="modal-actions">
-        <button
-          className="secondary-btn"
-          onClick={() =>
-            exportCsv(
-              doc.number,
-              ["Producto", "Cantidad", "Precio", "Total"],
-              doc.lines.map((l) => [
-                state.products.find((p) => p.id === l.productId)?.name ??
-                  l.productId,
-                l.quantity,
-                l.price,
-                l.quantity * l.price,
-              ]),
-            )
-          }
-        >
-          Exportar documento
-        </button>
+        <ExportMenu
+          data={{
+            name: doc.number,
+            title:
+              doc.kind === "CP"
+                ? `Detalle de ${doc.voucher}`
+                : doc.kind === "OC"
+                  ? "Detalle de orden de compra"
+                  : doc.kind === "OV"
+                    ? "Detalle de pedido de venta"
+                    : "Detalle de nota de ingreso",
+            profile: "document",
+            subtitle: "Detalle de documento y líneas registradas.",
+            company: { name: state.settings.company },
+            documentType:
+              doc.kind === "CP"
+                ? `DETALLE DE ${doc.voucher.toUpperCase()}`
+                : doc.kind === "OC"
+                  ? "DETALLE DE ORDEN DE COMPRA"
+                  : doc.kind === "OV"
+                    ? "DETALLE DE PEDIDO DE VENTA"
+                    : "DETALLE DE NOTA DE INGRESO",
+            documentNumber: doc.number,
+            meta: [
+              { label: "Documento", value: doc.number },
+              { label: "Tercero", value: party?.name ?? doc.partyId },
+              { label: "Fecha", value: dateLabel(doc.date) },
+              {
+                label: "Almacén",
+                value:
+                  state.warehouses.find((w) => w.id === doc.warehouseId)
+                    ?.name ?? doc.warehouseId,
+              },
+              { label: "Forma de pago", value: doc.method },
+              { label: "Estado", value: doc.status },
+            ],
+            summary: [
+              {
+                label: "Subtotal",
+                value: doc.lines.reduce(
+                  (sum, line) => sum + line.quantity * line.price,
+                  0,
+                ),
+              },
+              { label: "Descuento", value: doc.discount },
+              { label: "Flete", value: doc.freight },
+              { label: "Total", value: doc.total },
+            ],
+            terms: doc.method,
+            notes: doc.notes,
+            headers: ["Producto", "Cantidad", "Precio", "Total"],
+            rows: doc.lines.map((l) => [
+              state.products.find((p) => p.id === l.productId)?.name ??
+                l.productId,
+              l.quantity,
+              l.price,
+              l.quantity * l.price,
+            ]),
+          }}
+        />
         <button className="btn" onClick={onClose}>
           Cerrar
         </button>
@@ -525,7 +639,6 @@ function LegacyOrderEditor({
   );
   const [validity, setValidity] = useState(quote?.validity ?? 15);
   const [selectingProducts, setSelectingProducts] = useState(false);
-  const [productNotice, setProductNotice] = useState("");
   const [error, setError] = useState("");
   const parties = kind === "OC" ? state.suppliers : state.customers;
   const update = (key: keyof Draft, value: unknown) =>
@@ -665,11 +778,6 @@ function LegacyOrderEditor({
             Seleccionar productos
           </button>
         </div>
-        {productNotice && (
-          <p role="status" className="muted">
-            {productNotice}
-          </p>
-        )}
         {selectingProducts && (
           <ProductSelectorModal
             context={kind}
@@ -685,9 +793,7 @@ function LegacyOrderEditor({
                 kind,
               );
               update("lines", next);
-              setProductNotice(
-                ids.length + " producto(s) agregados al documento.",
-              );
+              toast.info(ids.length + " producto(s) agregados al documento.");
             }}
           />
         )}

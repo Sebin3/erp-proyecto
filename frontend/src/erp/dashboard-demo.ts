@@ -53,7 +53,7 @@ export function completeDashboardDemo(state: State): boolean {
     ],
     discount: 0,
     freight: 0,
-    notes: "Operación DEMO simulada · resumen ejecutivo",
+    notes: "Operación registrada para el resumen ejecutivo.",
   });
   // One historical purchase and its actual receipt make purchase history and Kardex consistent.
   if (products[0].cost > 0 && Number.isFinite(products[0].cost)) {
@@ -98,7 +98,7 @@ export function completeDashboardDemo(state: State): boolean {
         date: shifted(40),
         amount: Math.round(bill.total * 50) / 100,
         method: "Transferencia bancaria",
-        reference: "Abono DEMO simulado",
+        reference: "Abono bancario",
       });
   }
   for (let i = 0; i < 2; i++) {
@@ -114,7 +114,7 @@ export function completeDashboardDemo(state: State): boolean {
       validity: 15,
     });
     quote.demo = true;
-    quote.notes = "Cotización DEMO simulada";
+    quote.notes = "Cotización comercial registrada.";
     if (i === 0) quote.status = "Enviada";
   }
   if (!state.payables) {
@@ -141,7 +141,7 @@ export function completeDashboardDemo(state: State): boolean {
                 date,
                 amount: paid,
                 method: "Transferencia",
-                reference: "Pago DEMO simulado",
+                reference: "Pago registrado",
               },
             ]
           : [],

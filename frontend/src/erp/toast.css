@@ -1,0 +1,52 @@
+:root {
+  --sbt-bg: var(--panel);
+  --sbt-fg: var(--ink);
+  --sbt-radius: 32px;
+  --sbt-shadow: 0 2px 12px rgb(0 0 0 / 0.12), 0 0 1px rgb(0 0 0 / 0.22);
+  --sbt-padding: 11px 14px;
+  --sbt-max-width: min(460px, calc(100vw - 32px));
+  --sbt-gap: 9px;
+  --sbt-font-family: var(--b);
+  --sbt-font-size: 12px;
+  --sbt-line-height: 1.35;
+  --sbt-font-weight: 500;
+  --sbt-success-bg: #e5f2e9;
+  --sbt-success-fg: #174a2b;
+  --sbt-error-bg: #fae5e5;
+  --sbt-error-fg: #711f26;
+  --sbt-warning-bg: #f9efd9;
+  --sbt-warning-fg: #654b17;
+  --sbt-info-bg: #e7edf6;
+  --sbt-info-fg: #294264;
+}
+
+:root[data-theme="dark"] {
+  --sbt-bg: #1b1a1a;
+  --sbt-fg: #e5e2e1;
+  --sbt-radius: 32px;
+  --sbt-shadow: 0 2px 16px rgb(0 0 0 / 0.5), 0 0 1px rgb(255 255 255 / 0.18);
+  --sbt-success-bg: #23322f;
+  --sbt-success-fg: #b6d4c4;
+  --sbt-error-bg: #3b2528;
+  --sbt-error-fg: #e8b8bb;
+  --sbt-warning-bg: #3b3221;
+  --sbt-warning-fg: #dfc58d;
+  --sbt-info-bg: #263039;
+  --sbt-info-fg: #b9cde0;
+}
+
+.sbt-shell {
+  border: 0;
+}
+
+.sbt-close {
+  margin-left: 5px;
+  color: inherit;
+  opacity: 0.72;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.sbt-close:hover {
+  opacity: 1;
+  transform: scale(1.06);
+}

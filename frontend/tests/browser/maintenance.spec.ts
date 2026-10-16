@@ -387,7 +387,7 @@ test("clients and products provide functional view, edit and safe deletion actio
     .fill("Cliente actualizado");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Guardar", exact: true })
+    .getByRole("button", { name: "Guardar cliente", exact: true })
     .click();
   await expect(row).toContainText("Cliente actualizado");
   await page

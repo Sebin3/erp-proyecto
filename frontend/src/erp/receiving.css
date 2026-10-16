@@ -809,3 +809,130 @@
     animation: none !important;
   }
 }
+
+/* The receiving screen has a dedicated stylesheet loaded after the global
+   theme. Keep its denser layout, but let dark mode own the palette. */
+:root[data-theme="dark"] .receiving-module,
+:root[data-theme="dark"] .receipt-modal,
+:root[data-theme="dark"] .receipt-detail-modal {
+  color: var(--ink);
+  background: var(--panel);
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] .receiving-module :is(
+    .card,
+    .table-tools,
+    .records,
+    .rc-section-head,
+    .rc-count,
+    .rc-order,
+    .rc-pending-pages,
+    .rc-notice,
+    .rc-error,
+    .rc-receipt-context,
+    .rc-receipt-table,
+    .metric-icon
+  ),
+:root[data-theme="dark"] .receipt-modal :is(
+    .modal-head,
+    .modal-content,
+    .rc-receipt-context,
+    .rc-receipt-table
+  ),
+:root[data-theme="dark"] .receipt-detail-modal :is(.modal-head, .modal-content) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.table-tools, .rc-section-head, .rc-pending-pages),
+:root[data-theme="dark"] .receipt-modal :is(.rc-receipt-context, .rc-receipt-table th),
+:root[data-theme="dark"] .receipt-detail-modal :is(.rc-receipt-context, .rc-receipt-table th) {
+  background: var(--surface-secondary);
+}
+
+:root[data-theme="dark"] .receiving-module :is(
+    input,
+    select,
+    textarea,
+    .record-search
+  ),
+:root[data-theme="dark"] .receipt-modal :is(input, select, textarea),
+:root[data-theme="dark"] .receipt-detail-modal :is(input, select, textarea) {
+  color: var(--ink) !important;
+  background: var(--panel) !important;
+  border-color: var(--line) !important;
+}
+
+:root[data-theme="dark"] .receiving-module :is(
+    .metric-header small,
+    .metric-caption,
+    .rc-section-head p,
+    .rc-order-identity > small,
+    .rc-overline,
+    .rc-order-products strong small,
+    .rc-pending-pages,
+    .rc-empty p,
+    .rc-document small,
+    .filter-field,
+    .table-tools > span,
+    .column-sort svg
+  ),
+:root[data-theme="dark"] .receipt-modal :is(.supplier-subtitle, .rc-receipt-toolbar p, .rc-receipt-context small),
+:root[data-theme="dark"] .receipt-detail-modal :is(.supplier-subtitle, .rc-receipt-context small) {
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.rc-order-link, .rc-empty),
+:root[data-theme="dark"] .receipt-modal :is(.rc-receipt-context > svg, .modal-heading-icon),
+:root[data-theme="dark"] .receipt-detail-modal .modal-heading-icon {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .receiving-module .rc-status {
+  color: var(--ink);
+  background: var(--surface-soft);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.rc-order, .rc-order-products),
+:root[data-theme="dark"] .receiving-module .records :is(th, td),
+:root[data-theme="dark"] .receipt-modal .rc-receipt-table :is(th, td),
+:root[data-theme="dark"] .receipt-detail-modal .rc-receipt-table :is(th, td) {
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.rc-order:hover, .records tbody tr:hover),
+:root[data-theme="dark"] .receiving-module .rc-pending-pages,
+:root[data-theme="dark"] .receipt-modal :is(.rc-receipt-table tbody tr:hover, .rc-receipt-summary) {
+  background: var(--hover);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.records th, .rc-receipt-table th),
+:root[data-theme="dark"] .receipt-modal .rc-receipt-table th,
+:root[data-theme="dark"] .receipt-detail-modal .rc-receipt-table th {
+  background: var(--surface-secondary);
+  color: var(--mute);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.records td, .rc-receipt-table td),
+:root[data-theme="dark"] .receipt-modal .rc-receipt-table td,
+:root[data-theme="dark"] .receipt-detail-modal .rc-receipt-table td {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.secondary-btn, .rc-count),
+:root[data-theme="dark"] .receipt-modal :is(.secondary-btn, .rc-count),
+:root[data-theme="dark"] .receipt-detail-modal :is(.secondary-btn, .rc-count) {
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .receiving-module :is(.secondary-btn:hover:not(:disabled), .rc-order:hover),
+:root[data-theme="dark"] .receipt-modal .secondary-btn:hover:not(:disabled),
+:root[data-theme="dark"] .receipt-detail-modal .secondary-btn:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--border-strong);
+}

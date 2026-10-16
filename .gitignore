@@ -7,3 +7,10 @@ dist/
 !.env.example
 test-results/
 playwright-report/
+
+# Local tooling, cloud credentials and Vercel project linkage
+.agents/
+.codex/
+.aws/
+.vercel/
+.deployment-check/

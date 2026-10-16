@@ -15,15 +15,18 @@ test("white surfaces, outlined navigation and collapsible groups preserve every 
     "rgb(218, 221, 227)",
   );
   const stored = await page.evaluate((k) => localStorage.getItem(k), key);
-  const group = page.getByRole("button", { name: "Compras", exact: true });
+  const group = page.getByRole("button", {
+    name: "Abastecimiento",
+    exact: true,
+  });
   await group.click();
   await expect(group).toHaveAttribute("aria-expanded", "false");
   await expect(
-    page.getByRole("link", { name: "Orden de compra", exact: true }),
+    page.getByRole("link", { name: "Órdenes de compra", exact: true }),
   ).not.toBeVisible();
   await group.click();
   await expect(
-    page.getByRole("link", { name: "Orden de compra", exact: true }),
+    page.getByRole("link", { name: "Órdenes de compra", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Colapsar menú" }).click();
   await expect(
@@ -53,7 +56,7 @@ test("chart modes, keyboard tooltips and purchase modal leave business data inta
   await page.getByRole("button", { name: "Trimestral", exact: true }).click();
   await expect(page.locator(".chart-bar-pair")).toHaveCount(4);
   await page
-    .getByRole("link", { name: "Orden de compra", exact: true })
+    .getByRole("link", { name: "Órdenes de compra", exact: true })
     .click();
   await page.getByRole("button", { name: "+ Nueva orden" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();

@@ -1,7 +1,7 @@
 import { SupplierAdministration, CatalogDeleteDialog } from "./supplier-admin";
 import { CustomerEditor } from "./customers";
 import { validRuc, type CatalogKind } from "./catalog-logic";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, FolderOpen, Search, Plus } from "lucide-react";
 import { ProductDetails } from "./products";
 import { useState } from "react";
 import { Icon } from "./icons";
@@ -13,15 +13,15 @@ import {
   type Product,
   type Warehouse,
 } from "./model";
-import { exportCsv, Modal, Records, Tag } from "./ui";
+import { Modal, Records, Tag } from "./ui";
+import { toast } from "./toast";
 type Catalog =
   | "Clientes"
   | "Productos"
   | "Proveedores"
   | "Almacenes"
   | "Categorías"
-  | "Empresa"
-  | "Auditoría";
+  | "Empresa";
 export function Catalogs() {
   const { state, transact } = useErp();
   const [tab, setTab] = useState<Catalog>("Clientes");
@@ -33,7 +33,6 @@ export function Catalogs() {
   } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [active, setActive] = useState("Todos");
   const catalogs: Catalog[] = [
     "Clientes",
@@ -42,7 +41,6 @@ export function Catalogs() {
     "Almacenes",
     "Categorías",
     "Empresa",
-    "Auditoría",
   ];
   const source =
     tab === "Clientes"
@@ -264,9 +262,12 @@ export function Catalogs() {
           record: `${tab}: ${record.name}`,
         });
       });
+      const editingRecord = Boolean(editor.id);
       setEditor(null);
       setError("");
-      setNotice("Catálogo actualizado.");
+      toast.success(
+        `${tab} ${editingRecord ? "actualizado" : "creado"} correctamente.`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar.");
     }
@@ -304,11 +305,15 @@ export function Catalogs() {
           </p>
         </div>
       </div>
-      <div className="catalog-tabs">
+      <div className="access-tabs" role="tablist" aria-label="Secciones de mantenimiento">
         {catalogs.map((c) => (
           <button
             key={c}
-            className={tab === c ? "btn" : "secondary-btn"}
+            id={`catalog-tab-${c.toLowerCase()}`}
+            className="access-tab"
+            role="tab"
+            aria-selected={tab === c}
+            aria-controls="catalog-panel"
             onClick={() => {
               setTab(c);
               setActive("Todos");
@@ -317,19 +322,10 @@ export function Catalogs() {
             }}
           >
             {c}
-            {c === "Clientes"
-              ? ` · ${state.customers.length}`
-              : c === "Productos"
-                ? ` · ${state.products.length}`
-                : ""}
           </button>
         ))}
       </div>
-      {notice && (
-        <p className="notice" role="status">
-          {notice}
-        </p>
-      )}
+      <div id="catalog-panel" role="tabpanel" aria-labelledby={`catalog-tab-${tab.toLowerCase()}`}>
       {!editor && error && (
         <p className="error" role="alert">
           {error}
@@ -414,9 +410,6 @@ export function Catalogs() {
                     r.id,
                     <>
                       {r.name}
-                      {"demo" in r && r.demo && (
-                        <small>DEMO · producto ficticio</small>
-                      )}
                     </>,
                     (r as Product).category,
                     (r as Product).unit,
@@ -431,9 +424,6 @@ export function Catalogs() {
                       r.id,
                       <>
                         {r.name}
-                        {"demo" in r && r.demo && (
-                          <small>DEMO · empresa ficticia</small>
-                        )}
                       </>,
                       (r as Warehouse).branch,
                       <Tag value={r.active ? "Activo" : "Inactivo"} />,
@@ -443,9 +433,6 @@ export function Catalogs() {
                       r.id,
                       <>
                         {r.name}
-                        {"demo" in r && r.demo && (
-                          <small>DEMO · empresa ficticia</small>
-                        )}
                       </>,
                       (r as Party).taxId,
                       (r as Party).contact,
@@ -454,40 +441,49 @@ export function Catalogs() {
                       rowActions({ ...r }),
                     ],
             }))}
-            onExport={() =>
-              exportCsv(
-                tab,
-                headers.filter((h) => h !== "Acciones"),
-                data.map((r) =>
-                  product
+            exportData={{
+              name: tab,
+              title: tab,
+              profile: "catalog",
+              company: { name: state.settings.company },
+              subtitle: `Maestro de ${tab.toLowerCase()} administrado desde EnterpriseCloud ERP.`,
+              summary: [
+                { label: "Registros", value: data.length },
+                {
+                  label: "Activos",
+                  value: data.filter((r) => r.active).length,
+                },
+              ],
+              headers: headers.filter((h) => h !== "Acciones"),
+              rows: data.map((r) =>
+                product
+                  ? [
+                      r.id,
+                      r.name,
+                      (r as Product).category,
+                      (r as Product).unit,
+                      (r as Product).cost,
+                      (r as Product).price,
+                      (r as Product).minimum,
+                      r.active ? "Activo" : "Inactivo",
+                    ]
+                  : warehouse
                     ? [
                         r.id,
                         r.name,
-                        (r as Product).category,
-                        (r as Product).unit,
-                        (r as Product).cost,
-                        (r as Product).price,
-                        (r as Product).minimum,
+                        (r as Warehouse).branch,
                         r.active ? "Activo" : "Inactivo",
                       ]
-                    : warehouse
-                      ? [
-                          r.id,
-                          r.name,
-                          (r as Warehouse).branch,
-                          r.active ? "Activo" : "Inactivo",
-                        ]
-                      : [
-                          r.id,
-                          r.name,
-                          (r as Party).taxId,
-                          (r as Party).contact,
-                          (r as Party).credit,
-                          r.active ? "Activo" : "Inactivo",
-                        ],
-                ),
-              )
-            }
+                    : [
+                        r.id,
+                        r.name,
+                        (r as Party).taxId,
+                        (r as Party).contact,
+                        (r as Party).credit,
+                        r.active ? "Activo" : "Inactivo",
+                      ],
+              ),
+            }}
           />
           <p className="muted">
             Desactiva registros para dejar de utilizarlos en nuevas operaciones.
@@ -497,27 +493,6 @@ export function Catalogs() {
       )}
       {tab === "Categorías" && <Categories />}
       {tab === "Empresa" && <Company />}
-      {tab === "Auditoría" && (
-        <Records
-          headers={["Fecha / hora", "Acción", "Registro"]}
-          rows={state.audit.map((a) => ({
-            id: a.id,
-            search: `${a.action} ${a.record}`,
-            cells: [
-              new Date(a.date).toLocaleString("es-PE"),
-              a.action,
-              a.record,
-            ],
-          }))}
-          onExport={() =>
-            exportCsv(
-              "auditoria",
-              ["Fecha", "Acción", "Registro"],
-              state.audit.map((a) => [a.date, a.action, a.record]),
-            )
-          }
-        />
-      )}{" "}
       {viewing && (
         <Modal title={String(viewing.name)} onClose={() => setViewing(null)}>
           {product ? (
@@ -536,7 +511,6 @@ export function Catalogs() {
                         {
                           id: "Código",
                           active: "Estado",
-                          demo: "Registro DEMO",
                           registeredAt: "Fecha de registro",
                         }[key] ??
                         key}
@@ -576,7 +550,7 @@ export function Catalogs() {
           onClose={() => setDeleting(null)}
           onDone={(deactivated) => {
             setDeleting(null);
-            setNotice(
+            toast[deactivated ? "warning" : "success"](
               deactivated
                 ? "Registro desactivado. Su historial se conserva."
                 : "Registro eliminado.",
@@ -590,7 +564,7 @@ export function Catalogs() {
           onClose={() => setEditor(null)}
           onSaved={() => {
             setEditor(null);
-            setNotice("Catálogo actualizado.");
+            toast.success("Cliente guardado correctamente.");
           }}
         />
       )}
@@ -699,6 +673,7 @@ export function Catalogs() {
           </form>
         </Modal>
       )}
+      </div>
     </>
   );
 }
@@ -706,18 +681,28 @@ function Categories() {
   const { state, transact } = useErp();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const visible = state.categories.filter((c) => c.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es")));
   return (
-    <section className="card">
-      <h2>Categorías de producto</h2>
-      <div className="catalog-tabs">
-        {state.categories.map((c) => (
-          <span className="tag" key={c}>
-            {c}
-          </span>
-        ))}
+    <section className="categories-page">
+      <div className="categories-heading">
+        <div><span className="categories-eyebrow">CATÁLOGO DE PRODUCTOS</span><h2>Categorías de producto</h2><p className="muted">Organiza tu catálogo por familias de productos.</p></div>
+        <span className="categories-total"><FolderOpen size={18} />{state.categories.length} categorías</span>
       </div>
+      <div className="categories-layout">
+      <div className="card categories-directory">
+        <label className="categories-search"><Search size={18} /><input aria-label="Buscar categorías" placeholder="Buscar una categoría…" value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+        <div className="categories-grid">
+          {visible.map((category) => {
+            const count = state.products.filter((p) => p.category === category).length;
+            return <article className="category-tile" key={category}><span className="category-tile-icon"><FolderOpen size={22} /></span><h3>{category}</h3><p>{count} {count === 1 ? "producto" : "productos"}</p></article>;
+          })}
+        </div>
+        {!visible.length && <div className="categories-empty"><FolderOpen size={30} /><h3>{search ? "No se encontraron categorías" : "Aún no hay categorías"}</h3><p className="muted">{search ? "Prueba con otro nombre." : "Agrega tu primera categoría para organizar los productos."}</p></div>}
+      </div>
+      <aside className="card categories-create"><span className="category-tile-icon"><Plus size={22} /></span><h3>Nueva categoría</h3><p className="muted">Usa un nombre breve y fácil de identificar.</p>
       <form
-        className="product-picker"
+        className="categories-form"
         onSubmit={(e) => {
           e.preventDefault();
           try {
@@ -729,32 +714,44 @@ function Categories() {
                 )
               )
                 throw Error("La categoría ya existe.");
-              s.categories.push(name.trim());
+              const category = name.trim();
+              s.categories.push(category);
+              s.audit.unshift({
+                id: crypto.randomUUID(),
+                date: new Date().toISOString(),
+                action: "Crear categoría",
+                record: category,
+              });
             });
             setName("");
             setError("");
+            toast.success("Categoría agregada correctamente.");
           } catch (err) {
             setError(err instanceof Error ? err.message : "Error");
           }
         }}
       >
+        <label htmlFor="new-category-name">Nombre de la categoría</label>
         <input
+          id="new-category-name"
           aria-label="Nombre de nueva categoría"
           placeholder="Nueva categoría"
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <button className="btn">Agregar categoría</button>
+        <button className="btn"><Plus size={16} />Agregar categoría</button>
       </form>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
+      </aside>
+      </div>
     </section>
   );
 }
 function Company() {
   const { state, transact } = useErp();
   const [company, setCompany] = useState(state.settings.company);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   return (
     <section className="card">
       <h2>Empresa y respaldo</h2>
@@ -763,11 +760,23 @@ function Company() {
           e.preventDefault();
           try {
             transact((s) => {
-              s.settings.company = company.trim();
+              const nextCompany = company.trim();
+              if (s.settings.company !== nextCompany) {
+                s.settings.company = nextCompany;
+                s.audit.unshift({
+                  id: crypto.randomUUID(),
+                  date: new Date().toISOString(),
+                  action: "Actualizar empresa",
+                  record: nextCompany,
+                });
+              }
             });
-            setMessage("Empresa actualizada.");
+            setError("");
+            toast.success("Empresa actualizada correctamente.");
           } catch (err) {
-            setMessage(err instanceof Error ? err.message : "Error");
+            const message = err instanceof Error ? err.message : "Error";
+            setError(message);
+            toast.error(message);
           }
         }}
       >
@@ -783,10 +792,6 @@ function Company() {
         <button className="btn">Guardar</button>
       </form>
       <hr />
-      <p className="muted">
-        Los datos se guardan en este navegador. Descarga un respaldo para
-        conservar una copia.
-      </p>
       <button
         className="secondary-btn"
         onClick={() => {
@@ -800,14 +805,15 @@ function Company() {
           a.download = `enterprisecloud-respaldo-${today()}.json`;
           a.click();
           URL.revokeObjectURL(url);
+          toast.success("Respaldo JSON descargado correctamente.");
         }}
       >
         <Icon name="download" size={15} />
         Descargar respaldo JSON
       </button>
-      {message && (
-        <p className="notice" role="status">
-          {message}
+      {error && (
+        <p className="error" role="alert">
+          {error}
         </p>
       )}
     </section>

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Eye, Download } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useErp } from "./store";
 import { money, dateLabel } from "./model";
-import { Modal, Records, DocDetail, exportCsv } from "./ui";
+import { Modal, Records, DocDetail, ExportMenu } from "./ui";
 import { SupplierDetailsTrigger } from "./suppliers";
 
 export function PayableDetails({
@@ -35,7 +35,6 @@ export function PayableDetails({
           <small>Registro</small>
           <b>
             {account.id}
-            {account.demo ? " · DEMO" : ""}
           </b>
         </div>
         <div>
@@ -103,30 +102,39 @@ export function PayablesPanel() {
         <div>
           <h2>Cuentas por pagar</h2>
           <p className="muted">
-            Deuda registrada a proveedores. Los ejemplos se identifican como
-            DEMO.
+            Deuda registrada a proveedores y fechas de vencimiento.
           </p>
         </div>
-        <button
-          className="secondary-btn"
-          onClick={() =>
-            exportCsv(
-              "cuentas-por-pagar",
-              headers.slice(0, -1),
-              accounts.map((a) => [
-                a.id,
-                number(a.documentId),
-                name(a.supplierId),
-                a.dueDate,
-                a.total,
-                a.balance,
-              ]),
-            )
-          }
-        >
-          <Download size={14} />
-          Exportar cuentas por pagar
-        </button>
+        <ExportMenu
+          data={{
+            name: "cuentas-por-pagar",
+            title: "Cuentas por pagar",
+            profile: "account",
+            company: { name: state.settings.company },
+            subtitle:
+              "Obligaciones pendientes con proveedores y fechas de vencimiento.",
+            summary: [
+              { label: "Registros", value: accounts.length },
+              {
+                label: "Importe total",
+                value: accounts.reduce((sum, a) => sum + a.total, 0),
+              },
+              {
+                label: "Saldo pendiente",
+                value: accounts.reduce((sum, a) => sum + a.balance, 0),
+              },
+            ],
+            headers: headers.slice(0, -1),
+            rows: accounts.map((a) => [
+              a.id,
+              number(a.documentId),
+              name(a.supplierId),
+              a.dueDate,
+              a.total,
+              a.balance,
+            ]),
+          }}
+        />
       </div>
       <Records
         sortable
@@ -145,7 +153,6 @@ export function PayablesPanel() {
           cells: [
             <>
               {a.id}
-              {a.demo && <small>DEMO · deuda simulada</small>}
             </>,
             number(a.documentId),
             <SupplierDetailsTrigger supplierId={a.supplierId}>

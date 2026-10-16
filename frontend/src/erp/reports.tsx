@@ -1,9 +1,10 @@
 import { SupplierSelector } from "./suppliers";
 import { useState } from "react";
-import { Icon } from "./icons";
 import { useErp } from "./store";
 import { dateLabel, money, stockOf, today } from "./model";
-import { exportCsv, Metrics, Records, Tag } from "./ui";
+import { ExportMenu, Metrics, Records, Tag } from "./ui";
+import type { ExportChart } from "./exports";
+import { useDailyDateFilter } from "./daily-filter";
 const names = [
   "Ventas por período",
   "Compras por proveedor",
@@ -15,8 +16,8 @@ const names = [
 export function Reports() {
   const { state } = useErp();
   const [report, setReport] = useState(names[0]);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useDailyDateFilter();
+  const [to, setTo] = useDailyDateFilter();
   const [warehouse, setWarehouse] = useState("Todos");
   const [party, setParty] = useState("Todos");
   const [error, setError] = useState("");
@@ -29,6 +30,7 @@ export function Reports() {
   let headers: string[] = [];
   let rows: (string | number)[][] = [];
   let value = 0;
+  let charts: ExportChart[] = [];
   if (report === "Stock valorizado") {
     headers = ["Código", "Producto", "Almacén", "Cantidad", "Costo", "Valor"];
     state.products.forEach((p) =>
@@ -157,31 +159,133 @@ export function Reports() {
       );
     }
   }
+  if (report === "Ventas por período") {
+    charts = [
+      {
+        type: "bars",
+        title: "Comprobantes por fecha",
+        data: rows
+          .map((row) => ({ label: String(row[0]), value: Number(row[1]) }))
+          .filter((item) => Number.isFinite(item.value))
+          .slice(0, 8),
+      },
+    ];
+  } else if (report === "Compras por proveedor") {
+    charts = [
+      {
+        type: "bars",
+        title: "Órdenes por proveedor",
+        data: rows
+          .map((row) => ({ label: String(row[0]), value: Number(row[1]) }))
+          .filter((item) => Number.isFinite(item.value))
+          .slice(0, 8),
+      },
+    ];
+  } else if (report === "Stock valorizado") {
+    charts = [
+      {
+        type: "bars",
+        title: "Unidades por producto",
+        data: rows
+          .map((row) => ({ label: String(row[1]), value: Number(row[3]) }))
+          .filter((item) => Number.isFinite(item.value))
+          .slice(0, 8),
+      },
+    ];
+  } else if (report === "Movimientos de Kardex") {
+    const movementTotals = state.movements
+      .filter(
+        (movement) =>
+          period(movement.date) &&
+          (warehouse === "Todos" || movement.warehouseId === warehouse) &&
+          (party === "Todos" || movement.partyId === party),
+      )
+      .reduce<Record<string, number>>((totals, movement) => {
+        totals[movement.type] = (totals[movement.type] ?? 0) + movement.quantity;
+        return totals;
+      }, {});
+    charts = [
+      {
+        type: "donut",
+        title: "Entradas y salidas",
+        data: Object.entries(movementTotals).map(([label, amount]) => ({
+          label,
+          value: amount,
+        })),
+      },
+    ];
+  } else if (report === "Cuentas por cobrar" || report === "Comprobantes emitidos") {
+    const documents = state.documents.filter(
+      (document) =>
+        document.kind === "CP" &&
+        period(document.date) &&
+        (warehouse === "Todos" || document.warehouseId === warehouse) &&
+        (party === "Todos" || document.partyId === party) &&
+        (report !== "Cuentas por cobrar" || document.balance > 0),
+    );
+    const statuses = documents.reduce<Record<string, number>>((totals, document) => {
+      totals[document.status] = (totals[document.status] ?? 0) + 1;
+      return totals;
+    }, {});
+    charts = [
+      {
+        type: "donut",
+        title: "Estado de comprobantes",
+        data: Object.entries(statuses).map(([label, amount]) => ({
+          label,
+          value: amount,
+        })),
+      },
+    ];
+  }
   const valid = !from || !to || from <= to;
   return (
     <>
       <div className="hd page-head">
         <div>
-          <h1>Reportes</h1>
+          <h1>Analítica y reportes</h1>
           <p className="sub no-margin">
             Información calculada a partir de tus documentos e inventario.
           </p>
         </div>
-        <button
-          className="secondary-btn"
-          disabled={!valid}
-          onClick={() => exportCsv(report, headers, rows)}
-        >
-          <Icon name="download" size={15} />
-          Exportar CSV
-        </button>
+        <ExportMenu
+          data={{
+            name: report,
+            title: report,
+            profile: "report",
+            company: { name: state.settings.company },
+            subtitle: `Reporte ${report.toLowerCase()} · ${
+              from || to
+                ? `${from || "inicio"} al ${to || "actualidad"}`
+                : "sin rango de fechas"
+            }${warehouse !== "Todos" ? ` · ${warehouseName(warehouse)}` : ""}`,
+            summary: [
+              { label: "Registros", value: valid ? rows.length : 0 },
+              {
+                label:
+                  report === "Movimientos de Kardex"
+                    ? "Unidades"
+                    : "Importe analizado",
+                value: report === "Movimientos de Kardex" ? rows.length : value,
+              },
+              { label: "Filtros", value: `${from || "—"} / ${to || "—"}` },
+            ],
+            headers,
+            rows: valid ? rows : [],
+            charts: valid ? charts : [],
+          }}
+        />
       </div>
       <div className="report-workspace">
-        <div className="report-menu">
+        <div className="access-tabs" role="tablist" aria-label="Tipos de reporte">
           {names.map((n) => (
             <button
               key={n}
-              className={report === n ? "btn" : "secondary-btn"}
+              id={`report-tab-${n.toLowerCase().replaceAll(" ", "-")}`}
+              className="access-tab"
+              role="tab"
+              aria-selected={report === n}
+              aria-controls="report-panel"
               onClick={() => {
                 setReport(n);
                 setParty("Todos");
@@ -191,78 +295,93 @@ export function Reports() {
             </button>
           ))}
         </div>
-        <div>
+        <div id="report-panel" role="tabpanel" aria-labelledby={`report-tab-${report.toLowerCase().replaceAll(" ", "-")}`}>
           <section className="card report-filters">
             <h2>{report}</h2>
             <div className="table-tools">
-              {report !== "Stock valorizado" && (
-                <>
-                  <label>
-                    Desde
-                    <input
-                      aria-label="Fecha inicial"
-                      type="date"
-                      value={from}
-                      max={to || undefined}
-                      onChange={(e) => setFrom(e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Hasta
-                    <input
-                      aria-label="Fecha final"
-                      type="date"
-                      value={to}
-                      min={from || undefined}
-                      onChange={(e) => setTo(e.target.value)}
-                    />
-                  </label>
-                </>
-              )}
-              <select
-                aria-label="Almacén del reporte"
-                value={warehouse}
-                onChange={(e) => setWarehouse(e.target.value)}
-              >
-                <option value="Todos">Todos los almacenes</option>
-                {state.warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
-              {report !== "Stock valorizado" &&
-                report !== "Compras por proveedor" && (
-                  <select
-                    aria-label="Tercero del reporte"
-                    value={
-                      state.customers.some((c) => c.id === party)
-                        ? party
-                        : "Todos"
-                    }
-                    onChange={(e) => setParty(e.target.value)}
-                  >
-                    <option value="Todos">Todos los clientes</option>
-                    {state.customers.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+              <div className="table-filter-controls">
+                {report !== "Stock valorizado" && (
+                  <>
+                    <label>
+                      Desde
+                      <input
+                        aria-label="Fecha inicial"
+                        type="date"
+                        value={from}
+                        max={to || undefined}
+                        onChange={(e) => setFrom(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Hasta
+                      <input
+                        aria-label="Fecha final"
+                        type="date"
+                        value={to}
+                        min={from || undefined}
+                        onChange={(e) => setTo(e.target.value)}
+                      />
+                    </label>
+                  </>
                 )}
-              {(report === "Compras por proveedor" ||
-                report === "Movimientos de Kardex") && (
-                <SupplierSelector
-                  label="Proveedor del reporte"
-                  value={
-                    state.suppliers.some((s) => s.id === party) ? party : ""
-                  }
-                  onChange={(id) => setParty(id || "Todos")}
-                  includeInactive
-                  allowClear
-                  compact
-                />
-              )}
+                <select
+                  aria-label="Almacén del reporte"
+                  value={warehouse}
+                  onChange={(e) => setWarehouse(e.target.value)}
+                >
+                  <option value="Todos">Todos los almacenes</option>
+                  {state.warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+                {report !== "Stock valorizado" &&
+                  report !== "Compras por proveedor" && (
+                    <select
+                      aria-label="Tercero del reporte"
+                      value={
+                        state.customers.some((c) => c.id === party)
+                          ? party
+                          : "Todos"
+                      }
+                      onChange={(e) => setParty(e.target.value)}
+                    >
+                      <option value="Todos">Todos los clientes</option>
+                      {state.customers.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                {(report === "Compras por proveedor" ||
+                  report === "Movimientos de Kardex") && (
+                  <SupplierSelector
+                    label="Proveedor del reporte"
+                    value={
+                      state.suppliers.some((s) => s.id === party) ? party : ""
+                    }
+                    onChange={(id) => setParty(id || "Todos")}
+                    includeInactive
+                    allowClear
+                    compact
+                  />
+                )}
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setFrom("");
+                    setTo("");
+                    setWarehouse("Todos");
+                    setParty("Todos");
+                    setError("");
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+              </div>
             </div>
             {report === "Stock valorizado" && (
               <p className="muted">

@@ -1,0 +1,34 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { initialState } from "../src/erp/model.ts";
+import { clearOctober16Operations } from "../src/erp/operation-cleanup.ts";
+test("date cleanup reverses movements, preserves history and runs once", () => {
+ const s = initialState();
+ const date = "2026-10-16";
+ s.documents.forEach(d => d.date = date);
+ s.quotes.forEach(d => d.date = date);
+ s.movements.forEach(d => d.date = date);
+ const old = structuredClone(s.documents.find(d => d.kind === "OC"));
+ old.id = "historical"; old.date = "2026-10-15"; s.documents.push(old);
+ const expected = structuredClone(s.stock);
+ for (const m of s.movements) expected[m.productId][m.warehouseId] += m.type === "Entrada" ? -m.quantity : m.quantity;
+ assert.equal(clearOctober16Operations(s), true);
+ assert.deepEqual(s.documents.map(d => d.id), ["historical"]);
+ assert.equal(s.quotes.length, 0); assert.equal(s.movements.length, 0);
+ assert.deepEqual(s.stock, expected);
+ s.documents.push({...old, id: "new", date});
+ assert.equal(clearOctober16Operations(s), false);
+ assert.equal(s.documents.length, 2);
+});
+test("removed receipts and invoices reopen their historical sources", () => {
+ const s = initialState();
+ s.documents.forEach(d => {d.date = "2026-10-15"; d.payments.forEach(p => p.date = "2026-10-15");});
+ s.quotes.forEach(q => q.date = "2026-10-15"); s.movements.forEach(m => m.date = "2026-10-15");
+ const ni = s.documents.find(d => d.kind === "NI"); const oc = s.documents.find(d => d.id === ni.sourceId);
+ const cp = s.documents.find(d => d.kind === "CP"); const ov = s.documents.find(d => d.id === cp.sourceId);
+ ni.date = cp.date = "2026-10-16";
+ clearOctober16Operations(s);
+ assert.equal(oc.status, "Pendiente"); assert.deepEqual(oc.received, {});
+ assert.equal(ov.status, "Pendiente");
+ assert.equal(s.documents.some(d => d.date === "2026-10-16"), false);
+});

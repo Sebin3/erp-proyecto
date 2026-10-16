@@ -1,46 +1,14 @@
 import { test, expect } from "@playwright/test";
 const key = "enterprisecloud-integrated-erp-v1";
-test("small linked DEMO datasets persist once and supplier debt is consultable in finances", async ({
-  page,
-}) => {
-  await page.goto("/dashboard");
-  const before = await page.evaluate(
-    (k) => JSON.parse(localStorage.getItem(k)!),
-    key,
-  );
-  expect(before.documents.filter((d: any) => d.kind === "CP")).toHaveLength(4);
-  expect(before.documents.filter((d: any) => d.kind === "OC")).toHaveLength(4);
-  expect(before.documents.filter((d: any) => d.kind === "NI")).toHaveLength(3);
-  expect(before.quotes).toHaveLength(3);
-  expect(before.payables).toHaveLength(3);
-  expect(before.inventoryValuations).toHaveLength(3);
-  await page.reload();
-  const after = await page.evaluate(
-    (k) => JSON.parse(localStorage.getItem(k)!),
-    key,
-  );
-  expect(after).toEqual(before);
-  await page
-    .locator(".ed-finance>.ed-card")
-    .filter({ hasText: "Cuentas por pagar" })
-    .getByRole("link", { name: "Ver detalle" })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Cuentas por pagar", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Ver cuenta DEMO-CXP-1", exact: true })
-    .click();
-  const account = page.getByRole("dialog", { name: /Cuenta por pagar/ });
-  await expect(account).toContainText("Pago DEMO simulado");
-  await account.getByRole("button", { name: "Ver orden de compra" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(2);
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(1);
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+test("supplier debt is absent from dashboard and receivables", async ({page}) => {
+ await page.goto("/dashboard");
+ await expect(page.getByText("Cuentas por pagar", {exact: true})).toHaveCount(0);
+ await expect(page.locator(".ed-finance>.ed-card")).toHaveCount(2);
+ await page.goto("/estado-cuenta");
+ await expect(page.getByText("Cuentas por pagar", {exact: true})).toHaveCount(0);
 });
-test("executive dashboard has accumulated KPIs, chart-only periods, accessible tooltips and working CSV", async ({
+
+test("executive dashboard has accumulated KPIs, current month, accessible daily tooltips and working exports", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -52,34 +20,30 @@ test("executive dashboard has accumulated KPIs, chart-only periods, accessible t
     }),
   ).toContainText("Administrador");
   await expect(page.locator(".ed-kpi")).toHaveCount(4);
-  await expect(page.locator(".ed-finance>.ed-card")).toHaveCount(3);
+  await expect(page.locator(".ed-finance>.ed-card")).toHaveCount(2);
   await expect(
     page.getByRole("button", { name: "Hoy", exact: true }),
   ).toHaveCount(0);
-  const totals = await page.locator(".ed-kpis").innerText();
-  for (const [period, count] of [
-    ["Semanal", 8],
-    ["Mensual", 6],
-    ["Trimestral", 4],
-  ] as const) {
-    await page.getByRole("button", { name: period, exact: true }).click();
-    await expect(page.locator(".chart-bar-pair")).toHaveCount(count);
-    expect(await page.locator(".ed-kpis").innerText()).toBe(totals);
-  }
+  for (const period of ["Semanal", "Mensual", "Trimestral"]) await expect(page.getByRole("button", {name: period, exact: true})).toHaveCount(0);
+  const day = await page.evaluate(() => new Date().getDate());
+  await expect(page.locator(".chart-period-point")).toHaveCount(day);
   await page.locator(".enterprise-chart rect[tabindex]").last().focus();
   await expect(page.locator(".ed-tooltip")).toBeVisible();
   await expect(page.locator(".ed-tooltip")).toContainText("Ventas");
   await page.keyboard.press("Escape");
   await expect(page.locator(".ed-tooltip")).toBeHidden();
+  await page.getByRole("button", { name: "Exportar", exact: true }).click();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Exportar CSV", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Exportar Excel", exact: true })
+    .click();
   expect((await download).suggestedFilename()).toContain(
-    "EnterpriseCloud-panel",
+    "enterprisecloud-panel-ejecutivo",
   );
   await expect(page.locator(".ed-finance").nth(0)).toContainText(
-    "3 cuentas pendientes",
+    "2 cuentas pendientes",
   );
-  await expect(page.locator(".ed-finance").nth(0)).toContainText("veces");
+  await expect(page.locator(".ed-finance").nth(0)).toContainText("Pedidos por facturar");
   expect(errors).toEqual([]);
   await page.screenshot({
     path: "test-results/executive-dashboard-desktop.png",
@@ -99,7 +63,7 @@ test("recent orders search all records, sort, paginate by five and open details 
         ...source,
         id: `TEST-OV-${i}`,
         number: `OV-TEST-${String(i).padStart(3, "0")}`,
-        date: "2026-01-01",
+        date: new Date().toLocaleDateString("en-CA"),
         total: 100 + i,
       });
     localStorage.setItem(k, JSON.stringify(s));
@@ -117,8 +81,12 @@ test("recent orders search all records, sort, paginate by five and open details 
     .getByRole("button", { name: "Ver detalle", exact: true })
     .click();
   await expect(
-    page.getByRole("dialog", { name: "OV-TEST-012", exact: true }),
+    page.getByRole("dialog", {
+      name: "Detalle de orden de venta",
+      exact: true,
+    }),
   ).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("OV-TEST-012");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await table.getByLabel("Buscar registros").fill("");

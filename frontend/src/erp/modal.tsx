@@ -48,6 +48,7 @@ export function Modal({
   className = "",
   subtitle,
   hideHeader = false,
+  dismissible = true,
 }: {
   title: string;
   children: ReactNode;
@@ -56,13 +57,17 @@ export function Modal({
   className?: string;
   subtitle?: string;
   hideHeader?: boolean;
+  dismissible?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [closing, setClosing] = useState(false);
+  const canDismiss = useRef(dismissible);
+  canDismiss.current = dismissible;
   const requestClose = () => {
+    if (!canDismiss.current) return;
     if (timer.current) return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches)
       return close.current();
