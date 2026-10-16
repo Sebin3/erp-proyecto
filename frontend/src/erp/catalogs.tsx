@@ -1,6 +1,6 @@
 import { SupplierAdministration, CatalogDeleteDialog } from "./supplier-admin";
 import { CustomerEditor } from "./customers";
-import { validRuc, type CatalogKind } from "./catalog-logic";
+import { deleteCategory, type CatalogKind } from "./catalog-logic";
 import { Eye, Pencil, Trash2, FolderOpen, Search, Plus } from "lucide-react";
 import { ProductDetails } from "./products";
 import { useState } from "react";
@@ -189,17 +189,6 @@ export function Catalogs() {
         !/^\d{8}(\d{3})?$/.test(String(editor.taxId))
       )
         throw Error("Ingresa un DNI de 8 dígitos o RUC de 11 dígitos.");
-      if (
-        !product &&
-        !warehouse &&
-        String(editor.taxId).length === 11 &&
-        !validRuc(String(editor.taxId)) &&
-        (
-          source.find((r) => r.id === editor.id && "taxId" in r) as
-            Party | undefined
-        )?.taxId !== editor.taxId
-      )
-        throw Error("El dígito verificador del RUC no es válido.");
       if (
         editor.email &&
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(editor.email))
@@ -595,6 +584,7 @@ export function Catalogs() {
                         setEditor({ ...editor, [key]: e.target.value })
                       }
                     >
+                      <option value="">Selecciona una categoría</option>
                       {state.categories.map((c) => (
                         <option key={c}>{c}</option>
                       ))}
@@ -682,6 +672,9 @@ function Categories() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [replacement, setReplacement] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const visible = state.categories.filter((c) => c.toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es")));
   return (
     <section className="categories-page">
@@ -695,7 +688,7 @@ function Categories() {
         <div className="categories-grid">
           {visible.map((category) => {
             const count = state.products.filter((p) => p.category === category).length;
-            return <article className="category-tile" key={category}><span className="category-tile-icon"><FolderOpen size={22} /></span><h3>{category}</h3><p>{count} {count === 1 ? "producto" : "productos"}</p></article>;
+            return <article className="category-tile" key={category}><div className="category-tile-head"><span className="category-tile-icon"><FolderOpen size={22} /></span><button type="button" className="category-delete-button" aria-label={`Eliminar categoría ${category}`} title="Eliminar categoría" onClick={() => {setDeleting(category); setReplacement(""); setDeleteError("");}}><Trash2 size={16} /></button></div><h3>{category}</h3><p>{count} {count === 1 ? "producto" : "productos"}</p></article>;
           })}
         </div>
         {!visible.length && <div className="categories-empty"><FolderOpen size={30} /><h3>{search ? "No se encontraron categorías" : "Aún no hay categorías"}</h3><p className="muted">{search ? "Prueba con otro nombre." : "Agrega tu primera categoría para organizar los productos."}</p></div>}
@@ -716,6 +709,7 @@ function Categories() {
                 throw Error("La categoría ya existe.");
               const category = name.trim();
               s.categories.push(category);
+              s.deletedCategories = s.deletedCategories?.filter((deleted) => deleted !== category);
               s.audit.unshift({
                 id: crypto.randomUUID(),
                 date: new Date().toISOString(),
@@ -745,6 +739,15 @@ function Categories() {
       {error && <p className="error" role="alert">{error}</p>}
       </aside>
       </div>
+      {deleting !== null && <Modal title="Eliminar categoría" onClose={() => setDeleting(null)}>
+        <p>¿Eliminar la categoría <strong>{deleting}</strong>?</p>
+        {state.products.some((product) => product.category === deleting) && <>
+          <p className="muted">Los productos se conservarán. Elige cómo clasificarlos después de eliminar esta categoría.</p>
+          <label className="filter-field">Mover productos a<select value={replacement} onChange={(event) => setReplacement(event.target.value)}><option value="">Sin categoría</option>{state.categories.filter((category) => category !== deleting).map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+        </>}
+        {deleteError && <p className="error" role="alert">{deleteError}</p>}
+        <div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setDeleting(null)}>Cancelar</button><button type="button" className="btn" onClick={() => {try {transact((state) => deleteCategory(state, deleting, replacement)); setDeleting(null); toast.success("Categoría eliminada correctamente.");} catch (error) {setDeleteError(error instanceof Error ? error.message : "No se pudo eliminar la categoría.");}}}>Eliminar categoría</button></div>
+      </Modal>}
     </section>
   );
 }

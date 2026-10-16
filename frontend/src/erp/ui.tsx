@@ -31,7 +31,7 @@ export function Tag({ value }: { value: string }) {
       value,
     )
       ? "ok"
-      : /Sin stock|Inactivo|Vencid/.test(value)
+      : /Sin stock|Inactivo|Vencid|Cancelad|Anulad/.test(value)
         ? "bad"
         : "warn";
   return (

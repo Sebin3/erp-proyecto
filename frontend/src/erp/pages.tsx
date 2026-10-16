@@ -8,6 +8,9 @@ import { Icon } from "./icons";
 import { useErp } from "./store";
 import {
   changeQuote,
+  cancelSalesOrder,
+  canCancelPurchaseOrder,
+  cancelPurchaseOrder,
   deleteQuote,
   createDocument,
   dateLabel,
@@ -155,6 +158,8 @@ export function Operations({ view }: { view: string }) {
   const [editor, setEditor] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [action, setAction] = useState<Document | null>(null);
+  const [cancelOrder, setCancelOrder] = useState<Document | null>(null);
+  const [cancelError, setCancelError] = useState("");
   const [error, setError] = useState("");
   if (view === "ingreso-kardex") return <ReceivingPage />;
   const name = routes.find((r) => r.path === `/${view}`)?.name ?? view;
@@ -483,6 +488,12 @@ export function Operations({ view }: { view: string }) {
               Facturar
             </button>
           )}
+          {view === "orden-compra" && canCancelPurchaseOrder(state, d) && (
+            <button type="button" className="secondary-btn" onClick={() => {setCancelOrder(d); setCancelError("");}}>Cancelar orden</button>
+          )}
+          {view === "orden-venta" && d.kind === "OV" && d.status === "Pendiente" && !state.documents.some((document) => document.kind === "CP" && document.sourceId === d.id) && (
+            <button type="button" className="secondary-btn" onClick={() => {setCancelOrder(d); setCancelError("");}}>Cancelar pedido</button>
+          )}
           {view === "estado-cuenta" && d.balance > 0 && (
             <button className="btn" onClick={() => setAction(d)}>
               Cobrar
@@ -625,6 +636,15 @@ export function Operations({ view }: { view: string }) {
         filters={actualFilters}
         searchText="Buscar documento, producto, cliente o proveedor…"
       />
+      {cancelOrder && <Modal title={cancelOrder.kind === "OC" ? "Cancelar orden de compra" : "Cancelar pedido de venta"} onClose={() => setCancelOrder(null)}>
+        <p>¿Cancelar {cancelOrder.kind === "OC" ? "la orden de compra" : "el pedido"} <strong>{cancelOrder.number}</strong> de {partyName(cancelOrder.partyId)}?</p>
+        <p className="muted">{cancelOrder.kind === "OC" ? "La orden se conservará en el historial como cancelada y ya no podrá recibirse en el Kardex. El stock no cambia." : "El pedido se conservará en el historial como cancelado y ya no podrá facturarse. El stock y los saldos no cambian."}</p>
+        {cancelError && <p className="error" role="alert">{cancelError}</p>}
+        <div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setCancelOrder(null)}>Volver</button><button type="button" className="btn" onClick={() => {
+          try {transact((state) => {if (cancelOrder.kind === "OC") cancelPurchaseOrder(state, cancelOrder.id); else cancelSalesOrder(state, cancelOrder.id);}); setCancelOrder(null); toast.success(cancelOrder.kind === "OC" ? "Orden de compra cancelada correctamente." : "Pedido cancelado correctamente.");}
+          catch (error) {setCancelError(error instanceof Error ? error.message : "No se pudo cancelar la orden.");}
+        }}>Confirmar cancelación</button></div>
+      </Modal>}
       {editor && (
         <OrderEditor
           kind={view === "orden-compra" ? "OC" : "OV"}

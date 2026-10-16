@@ -192,3 +192,14 @@ export const nextSupplierCode = (state: State) => {
     number++;
   return `PRO-${String(number).padStart(3, "0")}`;
 };
+
+
+export function deleteCategory(state: State, category: string, replacement = "") {
+  if (!state.categories.includes(category)) throw Error("La categoría ya no existe.");
+  if (replacement === category || replacement && !state.categories.includes(replacement)) throw Error("Selecciona otra categoría disponible.");
+  state.categories = state.categories.filter((name) => name !== category);
+  for (const product of state.products) if (product.category === category) product.category = replacement;
+  const deleted = state.deletedCategories ??= [];
+  if (!deleted.includes(category)) deleted.push(category);
+  state.audit.unshift({id: crypto.randomUUID(), date: new Date().toISOString(), action: "Eliminar categoría", record: `${category} → ${replacement || "Sin categoría"}`});
+}

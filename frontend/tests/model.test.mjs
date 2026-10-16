@@ -8,6 +8,9 @@ import {
   pay,
   saveQuote,
   changeQuote,
+  cancelSalesOrder,
+  cancelPurchaseOrder,
+  canCancelPurchaseOrder,
   deleteQuote,
   stockOf,
   today,
@@ -384,4 +387,58 @@ test("saved quotations remain drafts until explicitly sent", () => {
  assert.equal(ready.status, "Aceptada");
  assert.throws(() => saveQuote(s, d, ready.id, "Borrador"), /vinculada/);
  assert.throws(() => deleteQuote(s, ready.id), /Solo puedes eliminar/);
+});
+
+
+test("cancelling a pending sales order preserves its quote, stock and balances and blocks invoicing",()=>{
+ const s=initialState(), d=draft(s), quote=saveQuote(s,{...d,validity:15});
+ changeQuote(s,quote.id,"send"); changeQuote(s,quote.id,"accept");
+ const order=s.documents.find(d=>d.id===quote.orderId);
+ const stock=structuredClone(s.stock), movements=structuredClone(s.movements);
+ const bills=structuredClone(s.documents.filter(d=>d.kind==="CP"));
+ cancelSalesOrder(s,order.id);
+ assert.equal(order.status,"Cancelada"); assert.equal(order.statusHistory.at(-1).status,"Cancelada");
+ assert.equal(s.audit[0].action,"Cancelar pedido de venta"); assert.equal(s.audit[0].record,order.number);
+ assert.deepEqual(s.stock,stock); assert.deepEqual(s.movements,movements);
+ assert.deepEqual(s.documents.filter(d=>d.kind==="CP"),bills);
+ assert.equal(quote.orderId,order.id); assert.equal(quote.status,"Aceptada");
+ assert.throws(()=>invoice(s,order.id,d.voucher,today()));
+ assert.throws(()=>cancelSalesOrder(s,order.id));
+});
+
+test("cancellation checks current invoice links and rejects purchases and missing orders",()=>{
+ const s=initialState(), d=draft(s), order=createDocument(s,d);
+ const bill=invoice(s,order.id,d.voucher,today());
+ let before=JSON.stringify(s); assert.throws(()=>cancelSalesOrder(s,order.id),/Solo puedes cancelar/); assert.equal(JSON.stringify(s),before);
+ order.status="Pendiente"; before=JSON.stringify(s);
+ assert.throws(()=>cancelSalesOrder(s,order.id),/Solo puedes cancelar/); assert.equal(JSON.stringify(s),before);
+ assert.throws(()=>cancelSalesOrder(s,bill.id),/no encontrado/);
+ assert.throws(()=>cancelSalesOrder(s,"unknown"),/no encontrado/);
+});
+
+
+test("purchase cancellation preserves stock and history and prevents future receipt",()=>{
+ const s=initialState(),d=draft(s,"OC"),order=createDocument(s,d);
+ const stock=structuredClone(s.stock),moves=structuredClone(s.movements);
+ assert.equal(canCancelPurchaseOrder(s,order),true);
+ cancelPurchaseOrder(s,order.id);
+ assert.equal(order.status,"Cancelada"); assert.equal(order.statusHistory.at(-1).status,"Cancelada");
+ assert.equal(s.audit[0].action,"Cancelar orden de compra");
+ assert.deepEqual(s.stock,stock); assert.deepEqual(s.movements,moves);
+ assert.throws(()=>receive(s,order.id,{[d.lines[0].productId]:1},d.warehouseId,today()));
+ assert.throws(()=>cancelPurchaseOrder(s,order.id));
+});
+
+test("purchase cancellation rejects partial receipts, linked notes and recorded supplier payments",()=>{
+ const s=initialState(),d=draft(s,"OC"),order=createDocument(s,d);
+ receive(s,order.id,{[d.lines[0].productId]:1},d.warehouseId,today());
+ assert.equal(canCancelPurchaseOrder(s,order),false);
+ assert.throws(()=>cancelPurchaseOrder(s,order.id),/sin recepciones/);
+ order.status="Pendiente"; order.received={};
+ assert.equal(canCancelPurchaseOrder(s,order),false);
+ assert.throws(()=>cancelPurchaseOrder(s,order.id));
+ const unpaid=createDocument(s,d);
+ s.payables=[{id:"paid",documentId:unpaid.id,supplierId:d.partyId,date:d.date,dueDate:d.date,total:unpaid.total,balance:unpaid.total-1,payments:[]}];
+ const before=JSON.stringify(s); assert.throws(()=>cancelPurchaseOrder(s,unpaid.id)); assert.equal(JSON.stringify(s),before);
+ assert.throws(()=>cancelPurchaseOrder(s,"missing"),/no encontrada/);
 });

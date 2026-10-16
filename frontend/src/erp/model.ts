@@ -357,6 +357,7 @@ export type State = {
   suppliers: Party[];
   warehouses: Warehouse[];
   categories: string[];
+  deletedCategories?: string[];
   documents: Document[];
   quotes: Quote[];
   movements: Movement[];
@@ -769,6 +770,33 @@ export function invoice(s: State, id: string, voucher: string, date: string) {
   log(s, "Facturar venta", `${ov.number} → ${cp.number}`);
   return cp;
 }
+export function canCancelPurchaseOrder(state: State, order: Document) {
+  return order.kind === "OC" && order.status === "Pendiente" &&
+    !Object.values(order.received ?? {}).some((quantity) => quantity !== 0) &&
+    !state.documents.some((document) => document.kind === "NI" && document.sourceId === order.id) &&
+    !state.movements.some((movement) => movement.documentId === order.id) &&
+    !order.payments.length &&
+    !(state.payables ?? []).some((account) => account.documentId === order.id && (account.payments.length > 0 || account.balance < account.total));
+}
+export function cancelPurchaseOrder(state: State, id: string) {
+  const order = state.documents.find((document) => document.id === id && document.kind === "OC");
+  if (!order) throw Error("Orden de compra no encontrada.");
+  if (!canCancelPurchaseOrder(state, order)) throw Error("Solo puedes cancelar órdenes pendientes sin recepciones, movimientos ni pagos registrados.");
+  order.status = "Cancelada";
+  (order.statusHistory ??= []).push({date: new Date().toISOString(), status: "Cancelada"});
+  log(state, "Cancelar orden de compra", order.number);
+}
+
+export function cancelSalesOrder(state: State, id: string) {
+  const order = state.documents.find((document) => document.id === id && document.kind === "OV");
+  if (!order) throw Error("Pedido de venta no encontrado.");
+  if (order.status !== "Pendiente" || state.documents.some((document) => document.kind === "CP" && document.sourceId === id) || state.movements.some((movement) => movement.documentId === id) || order.payments.length)
+    throw Error("Solo puedes cancelar pedidos pendientes sin comprobantes, movimientos ni cobros.");
+  order.status = "Cancelada";
+  (order.statusHistory ??= []).push({date: new Date().toISOString(), status: "Cancelada"});
+  log(state, "Cancelar pedido de venta", order.number);
+}
+
 export function nextPaymentReference(s: State) {
   const references = new Set(s.documents.flatMap((d) => d.payments.map((p) => p.reference)));
   let sequence = 1;

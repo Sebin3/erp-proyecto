@@ -1,0 +1,25 @@
+import {test,expect} from "@playwright/test";
+import {initialState,createDocument,receive,today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+const key="enterprisecloud-integrated-erp-v1";
+test("unreceived purchases can be cancelled and disappear from pending Kardex",async({page,context})=>{
+ const s=initialState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.quotes=[]; s.movements=[]; s.payables=[];
+ const draft={kind:"OC" as const,date:today(),partyId:s.suppliers[0].id,warehouseId:s.warehouses[0].id,method:"Contado",voucher:"Factura electrónica",lines:[{productId:s.products[0].id,quantity:2,price:10}],discount:0,freight:0,notes:""};
+ const pending=createDocument(s,draft),partial=createDocument(s,draft); receive(s,partial.id,{[s.products[0].id]:1},draft.warehouseId,today());
+ await page.goto("/orden-compra"); await page.evaluate(({s,key})=>localStorage.setItem(key,JSON.stringify(s)),{s,key}); await page.reload();
+ const row=page.locator("tbody tr").filter({hasText:pending.number});
+ await expect(page.locator("tbody tr").filter({hasText:partial.number}).getByRole("button",{name:"Cancelar orden",exact:true})).toHaveCount(0);
+ const receiving=await context.newPage(); await receiving.goto("/ingreso-kardex");
+ const pendingReceipt=receiving.locator(".rc-order").filter({hasText:pending.number}); await expect(pendingReceipt).toHaveCount(1);
+ await row.getByRole("button",{name:"Cancelar orden",exact:true}).click();
+ let modal=page.getByRole("dialog",{name:"Cancelar orden de compra",exact:true}); await modal.getByRole("button",{name:"Volver",exact:true}).click(); await expect(row).toContainText("Pendiente");
+ const before=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
+ await row.getByRole("button",{name:"Cancelar orden",exact:true}).click(); modal=page.getByRole("dialog",{name:"Cancelar orden de compra",exact:true});
+ await modal.getByRole("button",{name:"Confirmar cancelación",exact:true}).click();
+ await expect(row).toContainText("Cancelada"); await expect(row.getByRole("button",{name:"Recibir",exact:true})).toHaveCount(0); await expect(pendingReceipt).toHaveCount(0);
+ await page.reload(); await expect(row).toContainText("Cancelada");
+ await row.getByRole("button",{name:"Ver",exact:true}).click(); await expect(page.getByRole("dialog")).toContainText("Cancelada"); await page.keyboard.press("Escape");
+ const after=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key); expect(after.stock).toEqual(before.stock); expect(after.movements).toEqual(before.movements);
+ expect(after.documents.filter((d:any)=>d.kind==="NI")).toEqual(before.documents.filter((d:any)=>d.kind==="NI"));
+ await page.getByLabel("Filtrar estado").selectOption("Cancelada"); await expect(page.locator("tbody tr")).toHaveCount(1);
+});

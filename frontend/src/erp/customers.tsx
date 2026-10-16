@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { Search, Plus, Eye, Users } from "lucide-react";
 import { Modal } from "./modal";
 import { useErp } from "./store";
-import { validRuc } from "./catalog-logic";
 import { money, type Party } from "./model";
 
 export function CustomerEditor({
@@ -63,12 +62,6 @@ export function CustomerEditor({
                 throw Error(
                   `Ingresa un ${documentType} de ${documentType === "DNI" ? 8 : 11} dígitos.`,
                 );
-              if (
-                documentType === "RUC" &&
-                !validRuc(record.taxId) &&
-                customer?.taxId !== record.taxId
-              )
-                throw Error("El dígito verificador del RUC no es válido.");
               if (
                 record.email &&
                 !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.email)

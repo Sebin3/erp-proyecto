@@ -86,7 +86,7 @@ export function expandCatalogData(state: State): boolean {
   let changed = false;
   const categories = ["Adhesivos", "Seguridad industrial", "Limpieza", "Químicos", "Accesorios"];
   categories.forEach((category) => {
-    if (!state.categories.includes(category)) {
+    if (!state.categories.includes(category) && !state.deletedCategories?.includes(category)) {
       state.categories.push(category);
       changed = true;
     }
