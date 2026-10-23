@@ -473,6 +473,28 @@
   gap: 8px;
   flex: none;
 }
+.sales-footer .sales-pdf-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sales-pdf-actions label {
+  color: #6b7280;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.sales-pdf-actions select {
+  min-height: 34px;
+  padding: 6px 24px 6px 10px;
+  font-size: 11px;
+  border-color: #e5e7eb;
+}
+.sales-pdf-actions .secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
 .sales-premium-modal .btn {
   background: #111827;
   border: 1px solid #111827;
@@ -628,6 +650,10 @@
   .sales-footer > div {
     flex-wrap: wrap;
     flex: 1;
+    justify-content: flex-end;
+  }
+  .sales-footer .sales-pdf-actions {
+    flex: 1 1 100%;
     justify-content: flex-end;
   }
   .sales-footer > span {

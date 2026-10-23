@@ -5,6 +5,7 @@ import {
   X,
   ArrowUpRight,
   Printer,
+  Download,
   UserRound,
   Package,
   Clock3,
@@ -12,6 +13,8 @@ import {
 } from "lucide-react";
 import { Modal, ModalDismissButton } from "./modal";
 import { useErp } from "./store";
+import { toast } from "./toast";
+import type { InvoicePdfFormat } from "./invoice-pdf";
 import {
   dateLabel,
   invoice,
@@ -318,6 +321,8 @@ export function SalesDocumentDetailsModal({
   const { state } = useErp();
   const [tab, setTab] = useState(0),
     [related, setRelated] = useState<SalesDocument | null>(null);
+  const [pdfFormat, setPdfFormat] = useState<InvoicePdfFormat>("corporate");
+  const [pdfBusy, setPdfBusy] = useState(false);
   // Legacy quotations may carry a spread `kind: OV`; resolve identity from the collections.
   const storedDocument = state.documents.find((d) => d.id === doc.id);
   const current =
@@ -600,6 +605,41 @@ export function SalesDocumentDetailsModal({
           electrónica SUNAT
         </span>
         <div>
+          {isInvoice && (
+            <div className="sales-pdf-actions">
+              <label htmlFor={`invoice-pdf-format-${current.id}`}>Formato PDF</label>
+              <select
+                id={`invoice-pdf-format-${current.id}`}
+                value={pdfFormat}
+                disabled={pdfBusy}
+                onChange={(event) => setPdfFormat(event.target.value as InvoicePdfFormat)}
+              >
+                <option value="corporate">A4 · Corporativo</option>
+                <option value="classic">Carta · Clásico</option>
+                <option value="compact">A5 · Compacto</option>
+              </select>
+              <button
+                type="button"
+                className="secondary-btn"
+                disabled={pdfBusy}
+                onClick={async () => {
+                  setPdfBusy(true);
+                  try {
+                    const { downloadInvoicePdf } = await import("./invoice-pdf");
+                    await downloadInvoicePdf(state, current as Document, pdfFormat);
+                    toast.success("PDF de factura descargado correctamente.");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "No se pudo exportar el PDF.");
+                  } finally {
+                    setPdfBusy(false);
+                  }
+                }}
+              >
+                <Download size={15} />
+                {pdfBusy ? "Generando…" : "Descargar PDF"}
+              </button>
+            </div>
+          )}
           <button
             className="secondary-btn"
             onClick={() => printSalesDocument(state, current)}

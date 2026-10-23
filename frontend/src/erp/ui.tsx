@@ -168,6 +168,10 @@ export function Records({
   filters,
   exportData,
   empty = "No hay registros que coincidan con los filtros.",
+  emptyTitle,
+  emptyIcon,
+  emptyAction,
+  className = "",
   sortable = false,
   loading = false,
   initialPageSize = 10,
@@ -184,6 +188,10 @@ export function Records({
   filters?: ReactNode;
   exportData?: ExportData;
   empty?: string;
+  emptyTitle?: string;
+  emptyIcon?: ReactNode;
+  emptyAction?: ReactNode;
+  className?: string;
   sortable?: boolean;
   loading?: boolean;
   initialPageSize?: number;
@@ -228,7 +236,7 @@ export function Records({
   const pages = Math.max(1, Math.ceil(filtered.length / size));
   const current = Math.min(page, pages - 1);
   return (
-    <section className="card records">
+    <section className={`card records ${className}`}>
       <div className="table-tools">
         <div className="record-search">
           <Icon name="search" size={16} />
@@ -354,10 +362,11 @@ export function Records({
       {!loading && !filtered.length && (
         <div className="empty-filter">
           <span className="empty-icon">
-            <Icon name="empty" size={24} />
+            {emptyIcon ?? <Icon name="empty" size={24} />}
           </span>
-          <h3>Sin resultados</h3>
+          <h3>{query ? "Sin resultados" : emptyTitle ?? "Sin resultados"}</h3>
           <p>{empty}</p>
+          {!query && emptyAction}
         </div>
       )}
       <div className="pagination">

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { Download, FileSpreadsheet, UploadCloud } from "lucide-react";
+import { Download, FileSpreadsheet, UploadCloud, CircleCheck, CircleAlert, Copy, Rows3 } from "lucide-react";
 import { Modal } from "./modal";
 import { useErp } from "./store";
 import { toast } from "./toast";
@@ -77,7 +77,7 @@ export function CsvImportModal({ kind, onClose }: { kind: ImportKind; onClose: (
     } finally { setBusy(false); }
   }
   return (
-    <Modal title={`Importar ${titles[kind]} mediante CSV`} subtitle="Mantenimiento · Catálogo compartido" onClose={onClose} wide className="csv-import-modal">
+    <Modal title={`Importar ${titles[kind]} mediante CSV`} subtitle="Mantenimiento · Catálogo compartido" icon={<FileSpreadsheet size={20} />} onClose={onClose} wide className="csv-import-modal">
       {summary ? (
         <div className="csv-finish" role="status">
           <span className="csv-finish-icon"><FileSpreadsheet size={28} /></span>
@@ -94,7 +94,7 @@ export function CsvImportModal({ kind, onClose }: { kind: ImportKind; onClose: (
       ) : (
         <>
           <div className="csv-intro">
-            <div><h3>1. Prepara el archivo</h3><p>Usa las columnas reales de {titles[kind]}. Conserva los documentos y códigos como texto para mantener sus ceros iniciales.</p></div>
+            <div><span className="csv-step">PASO 01 · ARCHIVO</span><h3>Prepara el archivo</h3><p>Usa las columnas reales de {titles[kind]}. Conserva los documentos y códigos como texto para mantener sus ceros iniciales.</p></div>
             <button type="button" className="secondary-btn csv-template" onClick={() => downloadTemplate(kind)}>
               <Download size={16} /> Descargar plantilla CSV
             </button>
@@ -105,19 +105,19 @@ export function CsvImportModal({ kind, onClose }: { kind: ImportKind; onClose: (
             onDragLeave={() => setDragging(false)} onDrop={drop}
             onClick={() => fileInput.current?.click()}
             onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); fileInput.current?.click(); } }}>
-            <UploadCloud size={28} />
+            <span className="csv-drop-icon"><UploadCloud size={25} /></span>
             <strong>{name || "Arrastra tu CSV aquí o selecciónalo"}</strong>
             <small>UTF-8 · .csv · hasta 10 MB · comas o punto y coma</small>
           </div>
           <input ref={fileInput} type="file" accept=".csv,text/csv" className="csv-file-input" onChange={select} aria-label={`Seleccionar CSV de ${titles[kind]}`} />
           {(fileError || preview.error) && <p className="error" role="alert">{fileError || preview.error}</p>}
           {preview.data && <>
-            <div className="csv-intro csv-preview-heading"><div><h3>2. Revisa los registros</h3><p>Las filas con errores se omitirán. Revisa los detalles antes de confirmar.</p></div></div>
+            <div className="csv-intro csv-preview-heading"><div><span className="csv-step">PASO 02 · VALIDACIÓN</span><h3>Revisa los registros</h3><p>Las filas con errores se omitirán. Revisa los detalles antes de confirmar.</p></div></div>
             <div className="csv-stats" aria-label="Resultado de validación">
-              <span><strong>{preview.data.valid}</strong> válidos</span>
-              <span><strong>{preview.data.duplicate}</strong> duplicados</span>
-              <span><strong>{preview.data.errors}</strong> con errores</span>
-              <span><strong>{preview.data.rows.length}</strong> filas</span>
+              <span><CircleCheck size={16} /><strong>{preview.data.valid}</strong> válidos</span>
+              <span><Copy size={16} /><strong>{preview.data.duplicate}</strong> duplicados</span>
+              <span><CircleAlert size={16} /><strong>{preview.data.errors}</strong> con errores</span>
+              <span><Rows3 size={16} /><strong>{preview.data.rows.length}</strong> filas</span>
             </div>
             <label className="csv-policy">Si el registro ya existe:
               <select value={mode} onChange={(event) => setMode(event.target.value as DuplicateMode)}>

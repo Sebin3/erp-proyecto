@@ -1,7 +1,7 @@
 import { SupplierAdministration, CatalogDeleteDialog } from "./supplier-admin";
 import { CustomerEditor } from "./customers";
 import { deleteCategory, type CatalogKind } from "./catalog-logic";
-import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload } from "lucide-react";
+import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload, UsersRound, Package, Warehouse as WarehouseIcon } from "lucide-react";
 import { ProductDetails } from "./products";
 import { CsvImportModal } from "./csv-import-modal";
 import type { ImportKind } from "./csv-import";
@@ -103,6 +103,7 @@ export function Catalogs() {
   );
   const product = tab === "Productos";
   const warehouse = tab === "Almacenes";
+  const emptyIcon = product ? <Package size={23} /> : warehouse ? <WarehouseIcon size={23} /> : <UsersRound size={23} />;
   const fields = product
     ? [
         "name",
@@ -289,6 +290,7 @@ export function Catalogs() {
         ];
   return (
     <>
+      <div className="maintenance-module">
       <div className="hd page-head">
         <div>
           <h1>Mantenimientos</h1>
@@ -326,25 +328,36 @@ export function Catalogs() {
       {tab === "Proveedores" && <SupplierAdministration onImport={() => setImportKind("suppliers")} />}
       {["Clientes", "Productos", "Almacenes"].includes(tab) && (
         <>
-          <div className="hd">
-            <h2>{tab}</h2>
+          <div className="hd maintenance-heading">
+            <div className="maintenance-heading-copy">
+              <span className="maintenance-eyebrow">DIRECTORIO · {tab.toUpperCase()}</span>
+              <h2>{tab}</h2>
+              <p>{source.length} {source.length === 1 ? "registro" : "registros"} en este catálogo</p>
+            </div>
             <div className="csv-catalog-actions">
             {!warehouse && <button type="button" className="secondary-btn" onClick={() => setImportKind(product ? "products" : "customers")}><Upload size={16} /> Importar CSV</button>}
             <button
+              type="button"
               className="btn"
-              aria-label="+ Nuevo registro"
               onClick={() => {
                 setError("");
                 setEditor(empty());
               }}
             >
-              <Icon name="plus" size={15} />
+              <Plus size={15} />
               Nuevo registro
             </button>
             </div>
           </div>
           <Records
+            key={tab}
             sortable
+            className="maintenance-records"
+            searchText={`Buscar ${tab.toLowerCase()} por nombre o código…`}
+            emptyTitle={source.length ? undefined : `Aún no hay ${tab.toLowerCase()}`}
+            emptyIcon={emptyIcon}
+            empty={source.length ? "Prueba con otros filtros o términos de búsqueda." : warehouse ? "Registra un almacén para organizar las operaciones de inventario." : `Crea tu primer ${product ? "producto" : "cliente"} o importa un archivo CSV para comenzar.`}
+            emptyAction={!source.length && !warehouse ? <button type="button" className="secondary-btn" onClick={() => setImportKind(product ? "products" : "customers")}><Upload size={15} /> Importar CSV</button> : undefined}
             headers={headers}
             filters={
               <>
@@ -670,6 +683,7 @@ export function Catalogs() {
           </form>
         </Modal>
       )}
+      </div>
       </div>
     </>
   );
