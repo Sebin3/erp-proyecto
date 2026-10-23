@@ -1,5 +1,5 @@
 import type { Party, State } from "./model";
-import { rucCheckDigit } from "./catalog-logic.ts";
+import { rucCheckDigit } from "../../src/erp/catalog-logic.ts";
 const demoRuc = (n: number) => {
   const base = `2099000${String(n).padStart(3, "0")}`;
   return base + rucCheckDigit(base);

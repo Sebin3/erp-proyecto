@@ -1,9 +1,10 @@
-import {test,expect,type Page} from "@playwright/test";
-import {initialState,createDocument,today} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import {test,expect,type Page} from "../fixtures/browser-test";
+import {createDocument,today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 const key = "enterprisecloud-integrated-erp-v1";
 async function prepare(page: Page, amounts: number[]) {
- const s = initialState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.movements=[]; s.quotes=[];
+ const s = populatedState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.movements=[]; s.quotes=[];
  const supplier=s.suppliers[0];
  const draft={kind:"OC" as const,date:today(),partyId:supplier.id,warehouseId:s.warehouses[0].id,method:"Contado",voucher:"Factura electrónica",lines:[{productId:s.products[0].id,quantity:1,price:1}],discount:0,freight:0,notes:""};
  for(const price of amounts) createDocument(s,{...draft,lines:[{...draft.lines[0],price}]});

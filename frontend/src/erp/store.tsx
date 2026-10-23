@@ -1,7 +1,5 @@
 import { ensurePurchasePayables } from "./purchase-payables";
-import { clearOctober16Operations } from "./operation-cleanup";
-import { expandCatalogData, upgradeLegacyDemo } from "./demo";
-import { completeDashboardDemo } from "./dashboard-demo";
+import { cleanBusinessData } from "./business-cleanup";
 import {
   createContext,
   useContext,
@@ -11,102 +9,60 @@ import {
   type ReactNode,
 } from "react";
 import { ensureAccessControl, initialState, type State } from "./model";
+
 const KEY = "enterprisecloud-integrated-erp-v1";
-const cleanSimulatedAudit = (state: State) => {
-  if (state.auditCleanupVersion === 1) return false;
-  state.audit = [];
-  state.auditCleanupVersion = 1;
-  return true;
-};
-// "Pendiente" from the interim workflow was saved without an explicit send.
-const normalizeDraftQuotes = (state: State) => {
-  let changed = false;
-  for (const quote of state.quotes) if (quote.status === "Pendiente" && !quote.orderId) {
-    quote.status = "Borrador";
-    changed = true;
-  }
-  return changed;
-};
+const OLD_BACKUP = `${KEY}-before-2026-10-16-cleanup`;
 type Store = {
   state: State;
   transact: (action: (draft: State) => void) => void;
   storageError: string;
 };
 const Context = createContext<Store | null>(null);
-function read() {
+
+function read(): State {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const state = JSON.parse(raw) as State;
-      if (
-        state.version === 1 &&
-        Array.isArray(state.documents) &&
-        Array.isArray(state.products) &&
-        Array.isArray(state.movements) &&
-        Array.isArray(state.customers) &&
-        Array.isArray(state.suppliers) &&
-        Array.isArray(state.warehouses) &&
-        Array.isArray(state.quotes) &&
-        Array.isArray(state.categories) &&
-        Array.isArray(state.audit) &&
-        state.stock &&
-        state.settings
-      ) {
-        upgradeLegacyDemo(state);
-        expandCatalogData(state);
-        completeDashboardDemo(state);
-        ensureAccessControl(state);
-        cleanSimulatedAudit(state);
-        clearOctober16Operations(state);
-        ensurePurchasePayables(state);
-        normalizeDraftQuotes(state);
-        return state;
-      }
-      throw Error("Los datos guardados no tienen un formato compatible.");
+    if (!raw) {
+      const fresh = initialState();
+      localStorage.setItem(KEY, JSON.stringify(fresh));
+      localStorage.removeItem(OLD_BACKUP);
+      return fresh;
     }
-    const fresh = initialState();
-    expandCatalogData(fresh);
-    completeDashboardDemo(fresh);
-    cleanSimulatedAudit(fresh);
-    clearOctober16Operations(fresh);
-    ensurePurchasePayables(fresh);
-    return fresh;
+    const state = JSON.parse(raw) as State;
+    if (
+      state.version !== 1 ||
+      !Array.isArray(state.documents) ||
+      !Array.isArray(state.products) ||
+      !Array.isArray(state.movements) ||
+      !Array.isArray(state.customers) ||
+      !Array.isArray(state.suppliers) ||
+      !Array.isArray(state.warehouses) ||
+      !Array.isArray(state.quotes) ||
+      !Array.isArray(state.categories) ||
+      !Array.isArray(state.audit) ||
+      !state.stock ||
+      !state.settings
+    ) throw Error("Los datos guardados no tienen un formato compatible.");
+    const cleaned = cleanBusinessData(state);
+    const accessUpdated = ensureAccessControl(state);
+    const payablesUpdated = ensurePurchasePayables(state);
+    // Commit before returning so reloads and other tabs cannot restore demo data.
+    if (cleaned || accessUpdated || payablesUpdated)
+      localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.removeItem(OLD_BACKUP);
+    return state;
   } catch (error) {
     throw Error(
       `No se pudieron cargar los datos: ${error instanceof Error ? error.message : "error desconocido"}`,
     );
   }
 }
+
 export function ErpProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(read);
   const [storageError, setStorageError] = useState("");
   const current = useRef(state);
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(KEY))
-        localStorage.setItem(KEY, JSON.stringify(current.current));
-      else {
-        const durable = JSON.parse(localStorage.getItem(KEY)!) as State;
-        const upgraded = upgradeLegacyDemo(durable);
-        const catalogExpanded = expandCatalogData(durable);
-        const accessUpgraded = ensureAccessControl(durable);
-        const demoUpgraded = completeDashboardDemo(durable);
-        const auditCleaned = cleanSimulatedAudit(durable);
-        const operationsCleared = clearOctober16Operations(durable);
-        if (operationsCleared) localStorage.setItem(`${KEY}-before-2026-10-16-cleanup`, localStorage.getItem(KEY)!);
-        const payablesUpdated = ensurePurchasePayables(durable);
-        const quotesUpdated = normalizeDraftQuotes(durable);
-        if (demoUpgraded || upgraded || catalogExpanded || accessUpgraded || auditCleaned || operationsCleared || payablesUpdated || quotesUpdated) {
-          localStorage.setItem(KEY, JSON.stringify(durable));
-          current.current = durable;
-          setState(durable);
-        }
-      }
-    } catch {
-      setStorageError(
-        "El navegador no permite guardar datos. Habilita el almacenamiento para registrar operaciones.",
-      );
-    }
     const sync = () => {
       try {
         if (!localStorage.getItem(KEY)) return;
@@ -138,7 +94,6 @@ export function ErpProvider({ children }: { children: ReactNode }) {
     };
   }, []);
   const transact = (action: (draft: State) => void) => {
-    // Read the durable snapshot before every transaction to preserve edits from other tabs.
     const base = localStorage.getItem(KEY) ? read() : current.current;
     const draft = structuredClone(base);
     action(draft);
@@ -149,9 +104,7 @@ export function ErpProvider({ children }: { children: ReactNode }) {
       setStorageError(
         "No se pudo guardar en este navegador. Libera espacio o habilita el almacenamiento antes de continuar.",
       );
-      throw Error(
-        "No se pudo guardar la operación. Los datos anteriores siguen intactos.",
-      );
+      throw Error("No se pudo guardar la operación. Los datos anteriores siguen intactos.");
     }
     setStorageError("");
     current.current = draft;

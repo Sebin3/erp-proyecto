@@ -1,9 +1,10 @@
-import { test, expect } from "@playwright/test";
-import { initialState, createDocument, today } from "../../src/erp/model";
-import { clearOctober16Operations } from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import { test, expect } from "../fixtures/browser-test";
+import {  createDocument, today } from "../../src/erp/model";
+import { clearOctober16Operations } from "../fixtures/operation-cleanup";
 for (const method of ["Contado", "Transferencia bancaria", "Crédito 30 días"]) {
  test(`invoice can be collected: ${method}`, async ({ page }) => {
-  const state = initialState(); clearOctober16Operations(state); state.demoDashboardVersion = 1;
+  const state = populatedState(); clearOctober16Operations(state); state.demoDashboardVersion = 1;
   const order = createDocument(state, {kind: "OV", date: today(), partyId: state.customers[0].id, warehouseId: state.warehouses[0].id, method, voucher: "Factura electrónica", lines: [{productId: state.products[0].id, quantity: 1, price: 20}], discount: 0, freight: 0, notes: ""});
   await page.goto("/orden-venta");
   await page.evaluate(s => localStorage.setItem("enterprisecloud-integrated-erp-v1", JSON.stringify(s)), state);

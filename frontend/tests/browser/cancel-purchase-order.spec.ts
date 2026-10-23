@@ -1,9 +1,10 @@
-import {test,expect} from "@playwright/test";
-import {initialState,createDocument,receive,today} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import {test,expect} from "../fixtures/browser-test";
+import {createDocument,receive,today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 const key="enterprisecloud-integrated-erp-v1";
 test("unreceived purchases can be cancelled and disappear from pending Kardex",async({page,context})=>{
- const s=initialState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.quotes=[]; s.movements=[]; s.payables=[];
+ const s=populatedState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.quotes=[]; s.movements=[]; s.payables=[];
  const draft={kind:"OC" as const,date:today(),partyId:s.suppliers[0].id,warehouseId:s.warehouses[0].id,method:"Contado",voucher:"Factura electrónica",lines:[{productId:s.products[0].id,quantity:2,price:10}],discount:0,freight:0,notes:""};
  const pending=createDocument(s,draft),partial=createDocument(s,draft); receive(s,partial.id,{[s.products[0].id]:1},draft.warehouseId,today());
  await page.goto("/orden-compra"); await page.evaluate(({s,key})=>localStorage.setItem(key,JSON.stringify(s)),{s,key}); await page.reload();

@@ -1,9 +1,10 @@
-import {test, expect} from "@playwright/test";
-import {initialState} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import {test, expect} from "../fixtures/browser-test";
+import {} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 const key = "enterprisecloud-integrated-erp-v1";
 test("purchase form and partial receipts update the visible stock table by warehouse", async ({page: stock, context}) => {
- const state = initialState(); clearOctober16Operations(state);
+ const state = populatedState(); clearOctober16Operations(state);
  state.documents = []; state.quotes = []; state.movements = []; state.audit = []; state.demoDashboardVersion = 1;
  state.stock["PRD-001"]["ALM-01"] = 0; state.stock["PRD-001"]["ALM-02"] = 50;
  await stock.goto("/stock-productos");

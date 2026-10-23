@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures/browser-test";
 const key = "enterprisecloud-integrated-erp-v1";
 
 test("white surfaces, outlined navigation and collapsible groups preserve every module", async ({

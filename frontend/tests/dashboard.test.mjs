@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState } from "../src/erp/model.ts";
-import { completeDashboardDemo } from "../src/erp/dashboard-demo.ts";
+import { populatedState } from "./fixtures/populated-state.ts";
+import { completeDashboardDemo } from "./fixtures/dashboard-demo.ts";
 import {
   dashboardData,
   chartBuckets,
@@ -9,7 +9,7 @@ import {
 } from "../src/erp/dashboard-data.ts";
 
 test("small DEMO completion is coherent, persistent, idempotent and preserves existing records", () => {
-  const s = initialState();
+  const s = populatedState();
   const originals = structuredClone(s.documents);
   assert.equal(completeDashboardDemo(s), true);
   for (const doc of originals)
@@ -41,12 +41,12 @@ test("small DEMO completion is coherent, persistent, idempotent and preserves ex
   assert.equal(JSON.stringify(s), snapshot);
   const loaded = JSON.parse(snapshot);
   assert.equal(completeDashboardDemo(loaded), false);
-  const real = initialState();
+  const real = populatedState();
   real.products.forEach((p) => (p.demo = false));
   const before = JSON.stringify(real);
   assert.equal(completeDashboardDemo(real), false);
   assert.equal(JSON.stringify(real), before);
-  const mixed = initialState();
+  const mixed = populatedState();
   mixed.documents.push({
     ...mixed.documents[0],
     id: "USER-RECORD",
@@ -57,7 +57,7 @@ test("small DEMO completion is coherent, persistent, idempotent and preserves ex
 });
 
 test("dashboard counts invoices once, excludes cancelled and future operations, and uses historical COGS rather than purchases", () => {
-  const s = initialState();
+  const s = populatedState();
   const d = s.documents.find((d) => d.kind === "CP");
   s.documents = [
     {
@@ -91,7 +91,7 @@ test("dashboard counts invoices once, excludes cancelled and future operations, 
   assert.equal(dashboardData(s, "2026-02-01").profit, null);
 });
 test("receivable aging uses outstanding balances and contractual due dates, with exact 30/60 day boundaries", () => {
-  const s = initialState();
+  const s = populatedState();
   const base = s.documents.find((d) => d.kind === "CP");
   const now = "2026-04-01";
   s.documents = [
@@ -122,7 +122,7 @@ test("receivable aging uses outstanding balances and contractual due dates, with
   assert.equal(dashboardData(s, now).unknownDue, 1);
 });
 test("critical stock includes equality, counts products once across warehouses and prioritizes shortages", () => {
-  const s = initialState();
+  const s = populatedState();
   s.products = s.products.slice(0, 2);
   s.warehouses = s.warehouses.slice(0, 2);
   s.stock = {
@@ -139,7 +139,7 @@ test("critical stock includes equality, counts products once across warehouses a
   );
 });
 test("chart groups complete calendar weeks, months and quarters across years independently of accumulated KPIs", () => {
-  const s = initialState();
+  const s = populatedState();
   const base = s.documents.find((d) => d.kind === "CP");
   s.documents = [
     { ...base, date: "2025-12-31", total: 100 },
@@ -163,7 +163,7 @@ test("chart groups complete calendar weeks, months and quarters across years ind
 
 test("supplier accounts backfill missing purchases once and preserve recorded payments", async () => {
   const {ensurePurchasePayables} = await import("../src/erp/purchase-payables.ts");
-  const s = initialState();
+  const s = populatedState();
   const orders = s.documents.filter(d => d.kind === "OC");
   s.payables = undefined;
   assert.equal(ensurePurchasePayables(s), true);
@@ -180,7 +180,7 @@ test("supplier accounts backfill missing purchases once and preserve recorded pa
 });
 
 test("rotation works without snapshots and includes real sales after old demo valuations", () => {
-  const s = initialState();
+  const s = populatedState();
   s.inventoryValuations = undefined;
   const data = dashboardData(s);
   assert.ok(data.rotation && Number.isFinite(data.rotation.value));
@@ -199,7 +199,7 @@ test("rotation works without snapshots and includes real sales after old demo va
 
 test("daily chart stops today, includes today's invoices and excludes future documents", async () => {
  const {dailyChartBuckets} = await import("../src/erp/dashboard-data.ts");
- const s = initialState(), base = s.documents.find(d => d.kind === "CP");
+ const s = populatedState(), base = s.documents.find(d => d.kind === "CP");
  s.documents = [{...base, date: "2026-10-16", total: 20}, {...base, id: "future", date: "2026-10-26", total: 100}, {...base, id: "previous", date: "2026-09-30", total: 200}];
  const data = dailyChartBuckets(s, "2026-10-16");
  assert.equal(data.length, 16); assert.equal(data.at(-1).end, "2026-10-16");
@@ -211,7 +211,7 @@ test("daily chart stops today, includes today's invoices and excludes future doc
 
 
 test("pending invoice summary excludes invoiced, cancelled and future orders", () => {
- const s = initialState(), base = s.documents.find(d => d.kind === "OV");
+ const s = populatedState(), base = s.documents.find(d => d.kind === "OV");
  s.documents = [
   {...base, id: "pending", date: "2026-10-16", status: "Pendiente", total: 100},
   {...base, id: "future", date: "2026-10-17", status: "Pendiente", total: 200},
@@ -227,7 +227,7 @@ test("pending invoice summary excludes invoiced, cancelled and future orders", (
 
 
 test("recent orders contain only today's sales orders", () => {
- const s = initialState(), base = s.documents.find(d => d.kind === "OV");
+ const s = populatedState(), base = s.documents.find(d => d.kind === "OV");
  s.documents = [
   {...base, id: "yesterday", date: "2026-10-15"},
   {...base, id: "today", date: "2026-10-16"},

@@ -1,4 +1,4 @@
-import { quantityRound, round, type State } from "./model.ts";
+import { quantityRound, round, type State } from "../../src/erp/model.ts";
 
 // One-time cleanup explicitly requested for this date. Later entries remain valid.
 export function clearOctober16Operations(state: State): boolean {

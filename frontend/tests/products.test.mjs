@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState } from "../src/erp/model.ts";
+import { populatedState } from "./fixtures/populated-state.ts";
 import {
   queryProducts,
   defaultProductFilters,
@@ -9,7 +9,7 @@ import {
 } from "../src/erp/product-query.ts";
 
 test("positive fractional stock remains selectable and zero purchase cost can be edited in the document", () => {
-  const state = initialState();
+  const state = populatedState();
   state.stock["PRD-003"]["ALM-01"] = 0.125;
   const lines = appendProducts(state, [], ["PRD-003"], "ALM-01", "OV");
   assert.equal(lines[0].quantity, 0.125);
@@ -25,7 +25,7 @@ test("positive fractional stock remains selectable and zero purchase cost can be
 });
 
 test("search and category filter the complete catalog before pagination, ignoring accents", () => {
-  const state = initialState();
+  const state = populatedState();
   state.products = Array.from({ length: 240 }, (_, i) => ({
     ...state.products[0],
     id: `TEST-${i}`,
@@ -52,7 +52,7 @@ test("search and category filter the complete catalog before pagination, ignorin
   assert.equal(query({ sort: "price-desc" })[0].price, 240);
 });
 test("stock filters use the selected warehouse and low stock threshold", () => {
-  const state = initialState();
+  const state = populatedState();
   state.stock["PRD-001"]["ALM-01"] = 0;
   state.stock["PRD-002"]["ALM-01"] = 1;
   const query = (availability) =>
@@ -73,7 +73,7 @@ test("stock filters use the selected warehouse and low stock threshold", () => {
   assert.equal(query("stock").length, 7);
 });
 test("selection preserves purchase/quotation zero-stock rules and sales availability", () => {
-  const state = initialState();
+  const state = populatedState();
   state.stock["PRD-001"]["ALM-01"] = 0;
   const product = state.products[0];
   assert.equal(productRestriction(state, product, "ALM-01", "OC", []), "");
@@ -94,7 +94,7 @@ test("selection preserves purchase/quotation zero-stock rules and sales availabi
   );
 });
 test("multiple selection is atomic, keeps negotiated prices, deduplicates IDs and checks existing quantities", () => {
-  const state = initialState();
+  const state = populatedState();
   const lines = [{ productId: "PRD-001", quantity: 2, price: 7.5 }];
   const before = JSON.stringify(state);
   assert.deepEqual(

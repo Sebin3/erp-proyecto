@@ -1,6 +1,7 @@
-﻿import { test, expect } from "@playwright/test";
+import { populatedState } from "../fixtures/populated-state";
+import { test, expect } from "../fixtures/browser-test";
 import {
-  initialState,
+  
   createDocument,
   saveQuote,
   changeQuote,
@@ -8,7 +9,7 @@ import {
 } from "../../src/erp/model";
 const key = "enterprisecloud-integrated-erp-v1";
 async function prepare(page: any) {
-  const s = initialState(),
+  const s = populatedState(),
     draft = {
       kind: "OV" as const,
       date: today(),

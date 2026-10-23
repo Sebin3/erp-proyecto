@@ -1,7 +1,7 @@
-﻿import test from "node:test";
+import { populatedState } from "./fixtures/populated-state.ts";
+import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  initialState,
   saveQuote,
   changeQuote,
   invoice,
@@ -15,7 +15,7 @@ import {
 } from "../src/erp/sales-document-data.ts";
 
 test("agreed quotation details and immutable snapshots survive conversion, catalog edits and invoicing", () => {
-  const s = initialState();
+  const s = populatedState();
   const p = s.products[0],
     c = s.customers[0];
   c.paymentTerms = "Entrega pactada";
@@ -106,7 +106,7 @@ test("historical totals stay authoritative even when their line sum differs", ()
   assert.equal(JSON.stringify(historic), original);
 });
 test("orphan invoices never borrow an unrelated quotation; missing histories remain absent", () => {
-  const s = initialState(),
+  const s = populatedState(),
     cp = {
       ...s.documents.find((d) => d.kind === "CP"),
       sourceId: "missing",

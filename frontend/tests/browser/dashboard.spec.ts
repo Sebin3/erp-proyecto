@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures/browser-test";
 const key = "enterprisecloud-integrated-erp-v1";
 test("supplier debt is absent from dashboard and receivables", async ({page}) => {
  await page.goto("/dashboard");

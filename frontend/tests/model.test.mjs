@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  initialState,
   createDocument,
   receive,
   invoice,
@@ -16,9 +15,10 @@ import {
   today,
   total,
 } from "../src/erp/model.ts";
+import { populatedState } from "./fixtures/populated-state.ts";
 
 test("fractional inventory quantities are retained independently of money rounding", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OC", 0.123),
     before = stockOf(s, d.lines[0].productId, d.warehouseId),
     oc = createDocument(s, d);
@@ -28,7 +28,7 @@ test("fractional inventory quantities are retained independently of money roundi
   assert.equal(stockOf(s, d.lines[0].productId, d.warehouseId), before + 0.123);
 });
 test("invalid dates and amounts below one cent are rejected", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s);
   assert.throws(() => createDocument(s, { ...d, date: "2026-02-30" }));
   const oc = createDocument(s, draft(s, "OC"));
@@ -61,7 +61,7 @@ function draft(state, kind = "OV", quantity = 2) {
   };
 }
 test("purchase order does not change stock; partial and final receptions do", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OC", 10),
     before = stockOf(s, d.lines[0].productId, d.warehouseId);
   const oc = createDocument(s, d);
@@ -84,7 +84,7 @@ test("purchase order does not change stock; partial and final receptions do", ()
   );
 });
 test("rejects reception larger than outstanding quantity without altering state", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OC", 10),
     oc = createDocument(s, d),
     before = JSON.stringify(s);
@@ -95,7 +95,7 @@ test("rejects reception larger than outstanding quantity without altering state"
 });
 
 test("receipt request cannot be replayed while a purchase is still partially pending", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OC", 10),
     oc = createDocument(s, d);
   const note = receive(
@@ -126,7 +126,7 @@ test("receipt request cannot be replayed while a purchase is still partially pen
 });
 
 test("receipt rejects unknown products and invalid precision without changing documents or inventory", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OC", 10),
     oc = createDocument(s, d);
   const snapshot = JSON.stringify(s);
@@ -141,7 +141,7 @@ test("receipt rejects unknown products and invalid precision without changing do
 });
 
 test("multi-product receipt changes only the receiving warehouse and creates a matching movement for every line", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OC", 10);
   d.lines.push({ productId: s.products[1].id, quantity: 5, price: 3 });
   const oc = createDocument(s, d);
@@ -174,7 +174,7 @@ test("multi-product receipt changes only the receiving warehouse and creates a m
   });
 });
 test("sale order does not reduce stock; credit invoice does and creates debt", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s),
     before = stockOf(s, d.lines[0].productId, d.warehouseId),
     ov = createDocument(s, d);
@@ -188,7 +188,7 @@ test("sale order does not reduce stock; credit invoice does and creates debt", (
   assert.throws(() => invoice(s, ov.id, d.voucher, today()));
 });
 test("stock is checked again at invoicing when orders compete for stock", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s),
     quantity = stockOf(s, d.lines[0].productId, d.warehouseId);
   d.lines[0].quantity = quantity;
@@ -203,7 +203,7 @@ test("stock is checked again at invoicing when orders compete for stock", () => 
   assert.equal(JSON.stringify(s), before);
 });
 test("partial payment and settlement preserve stock and reject overpayment", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s),
     ov = createDocument(s, d),
     cp = invoice(s, ov.id, d.voucher, today()),
@@ -221,7 +221,7 @@ test("partial payment and settlement preserve stock and reject overpayment", () 
   assert.equal(JSON.stringify(s.stock), stock);
 });
 test("cash invoice remains invoiced until payment is registered", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s);
   d.method = "Contado";
   const cp = invoice(
@@ -240,7 +240,7 @@ test("cash invoice remains invoiced until payment is registered", () => {
   assert.match(cp.number, /^B001-/);
 });
 test("quotation can propose out-of-stock goods but acceptance checks availability", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s, "OV", 9999),
     q = saveQuote(s, { ...d, validity: 15 });
   changeQuote(s, q.id, "send");
@@ -249,7 +249,7 @@ test("quotation can propose out-of-stock goods but acceptance checks availabilit
   assert.equal(JSON.stringify(s), before);
 });
 test("quotation conversion links order, processing follows invoicing", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s),
     q = saveQuote(s, { ...d, validity: 15 });
   changeQuote(s, q.id, "send");
@@ -263,7 +263,7 @@ test("quotation conversion links order, processing follows invoicing", () => {
   assert.throws(() => saveQuote(s, { ...d, validity: 15 }, q.id));
 });
 test("credit limit is enforced before inventory mutation", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s);
   s.customers[0].credit = 0;
   const ov = createDocument(s, d),
@@ -275,7 +275,7 @@ test("credit limit is enforced before inventory mutation", () => {
   assert.equal(JSON.stringify(s), before);
 });
 test("validation rejects duplicate lines, nonfinite values and negative total", () => {
-  const s = initialState(),
+  const s = populatedState(),
     d = draft(s);
   assert.throws(() =>
     createDocument(s, { ...d, lines: [...d.lines, ...d.lines] }),
@@ -290,7 +290,7 @@ test("validation rejects duplicate lines, nonfinite values and negative total", 
   );
 });
 test("serializing state retains documents, movement links, balances and quotations", () => {
-  const s = initialState(),
+  const s = populatedState(),
     copy = JSON.parse(JSON.stringify(s));
   assert.deepEqual(copy.stock, s.stock);
   assert.deepEqual(copy.quotes, s.quotes);
@@ -322,7 +322,7 @@ test("serializing state retains documents, movement links, balances and quotatio
 });
 
 test("collections generate unique internal references without manual input", () => {
-  const s = initialState(), d = draft(s);
+  const s = populatedState(), d = draft(s);
   d.method = "Contado";
   const order = createDocument(s, d);
   const cp = invoice(s, order.id, d.voucher, today());
@@ -338,7 +338,7 @@ test("collections generate unique internal references without manual input", () 
 
 
 test("quotations require sending and accepted records cannot be deleted", () => {
- const s = initialState(), d = draft(s), q = saveQuote(s, {...d, validity: 15});
+ const s = populatedState(), d = draft(s), q = saveQuote(s, {...d, validity: 15});
  const stock = structuredClone(s.stock);
  assert.throws(() => changeQuote(s, q.id, "accept"), /Primero envía/);
  changeQuote(s, q.id, "send");
@@ -356,7 +356,7 @@ test("quotations require sending and accepted records cannot be deleted", () => 
 });
 
 test("draft deletion preserves inventory, documents and audit, and prevents stale edits", () => {
- const s = initialState(), d = draft(s), q = saveQuote(s, {...d, validity: 15});
+ const s = populatedState(), d = draft(s), q = saveQuote(s, {...d, validity: 15});
  const documents = structuredClone(s.documents), stock = structuredClone(s.stock);
  changeQuote(s, q.id, "send");
  changeQuote(s, q.id, "reject");
@@ -374,7 +374,7 @@ test("draft deletion preserves inventory, documents and audit, and prevents stal
 
 
 test("saved quotations remain drafts until explicitly sent", () => {
- const s = initialState(), d = {...draft(s), validity:15};
+ const s = populatedState(), d = {...draft(s), validity:15};
  const quote = saveQuote(s, d, undefined, "Borrador");
  assert.equal(quote.status, "Borrador");
  const ready = saveQuote(s, d, quote.id, "Borrador");
@@ -391,7 +391,7 @@ test("saved quotations remain drafts until explicitly sent", () => {
 
 
 test("cancelling a pending sales order preserves its quote, stock and balances and blocks invoicing",()=>{
- const s=initialState(), d=draft(s), quote=saveQuote(s,{...d,validity:15});
+ const s=populatedState(), d=draft(s), quote=saveQuote(s,{...d,validity:15});
  changeQuote(s,quote.id,"send"); changeQuote(s,quote.id,"accept");
  const order=s.documents.find(d=>d.id===quote.orderId);
  const stock=structuredClone(s.stock), movements=structuredClone(s.movements);
@@ -407,7 +407,7 @@ test("cancelling a pending sales order preserves its quote, stock and balances a
 });
 
 test("cancellation checks current invoice links and rejects purchases and missing orders",()=>{
- const s=initialState(), d=draft(s), order=createDocument(s,d);
+ const s=populatedState(), d=draft(s), order=createDocument(s,d);
  const bill=invoice(s,order.id,d.voucher,today());
  let before=JSON.stringify(s); assert.throws(()=>cancelSalesOrder(s,order.id),/Solo puedes cancelar/); assert.equal(JSON.stringify(s),before);
  order.status="Pendiente"; before=JSON.stringify(s);
@@ -418,7 +418,7 @@ test("cancellation checks current invoice links and rejects purchases and missin
 
 
 test("purchase cancellation preserves stock and history and prevents future receipt",()=>{
- const s=initialState(),d=draft(s,"OC"),order=createDocument(s,d);
+ const s=populatedState(),d=draft(s,"OC"),order=createDocument(s,d);
  const stock=structuredClone(s.stock),moves=structuredClone(s.movements);
  assert.equal(canCancelPurchaseOrder(s,order),true);
  cancelPurchaseOrder(s,order.id);
@@ -430,7 +430,7 @@ test("purchase cancellation preserves stock and history and prevents future rece
 });
 
 test("purchase cancellation rejects partial receipts, linked notes and recorded supplier payments",()=>{
- const s=initialState(),d=draft(s,"OC"),order=createDocument(s,d);
+ const s=populatedState(),d=draft(s,"OC"),order=createDocument(s,d);
  receive(s,order.id,{[d.lines[0].productId]:1},d.warehouseId,today());
  assert.equal(canCancelPurchaseOrder(s,order),false);
  assert.throws(()=>cancelPurchaseOrder(s,order.id),/sin recepciones/);

@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   Plus,
+  Upload,
   CircleAlert,
   Check,
 } from "lucide-react";
@@ -519,7 +520,7 @@ export function SupplierTable({
     />
   );
 }
-export function SupplierAdministration() {
+export function SupplierAdministration({ onImport }: { onImport: () => void }) {
   const [editing, setEditing] = useState<Party | null | undefined>(undefined);
   const [detail, setDetail] = useState("");
   const [deleting, setDeleting] = useState("");
@@ -529,10 +530,16 @@ export function SupplierAdministration() {
         <div>
           <h2>Proveedores</h2>
         </div>
+        <div className="csv-catalog-actions">
+        <button type="button" className="secondary-btn" onClick={onImport}>
+          <Upload size={16} />
+          Importar CSV
+        </button>
         <button type="button" className="btn" onClick={() => setEditing(null)}>
           <Plus size={15} />
           Nuevo proveedor
         </button>
+        </div>
       </div>
       <SupplierTable
         onDetails={setDetail}

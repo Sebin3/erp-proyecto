@@ -1,9 +1,10 @@
-import { test, expect } from "@playwright/test";
-import {initialState, createDocument, invoice, today} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import { test, expect } from "../fixtures/browser-test";
+import { createDocument, invoice, today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 for (const mobile of [false, true]) test(`dashboard uses live purchases, Kardex and line chart ${mobile ? "mobile" : "desktop"}`, async ({page}) => {
  await page.setViewportSize(mobile ? {width: 390, height: 844} : {width: 1440, height: 1000});
- const s = initialState(); clearOctober16Operations(s);
+ const s = populatedState(); clearOctober16Operations(s);
  s.documents = []; s.quotes = []; s.movements = []; s.payables = undefined; s.inventoryValuations = undefined; s.demoDashboardVersion = 1;
  const draft = {date: today(), partyId: s.suppliers[0].id, warehouseId: s.warehouses[0].id, method: "Crédito 30 días", voucher: "Factura electrónica", lines: [{productId: s.products[0].id, quantity: 2, price: 20}], discount: 0, freight: 0, notes: ""};
  const purchase = createDocument(s, {...draft, kind: "OC"});

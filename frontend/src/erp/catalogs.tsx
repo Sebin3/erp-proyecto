@@ -1,8 +1,10 @@
 import { SupplierAdministration, CatalogDeleteDialog } from "./supplier-admin";
 import { CustomerEditor } from "./customers";
 import { deleteCategory, type CatalogKind } from "./catalog-logic";
-import { Eye, Pencil, Trash2, FolderOpen, Search, Plus } from "lucide-react";
+import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload } from "lucide-react";
 import { ProductDetails } from "./products";
+import { CsvImportModal } from "./csv-import-modal";
+import type { ImportKind } from "./csv-import";
 import { useState } from "react";
 import { Icon } from "./icons";
 import { useErp } from "./store";
@@ -25,6 +27,7 @@ type Catalog =
 export function Catalogs() {
   const { state, transact } = useErp();
   const [tab, setTab] = useState<Catalog>("Clientes");
+  const [importKind, setImportKind] = useState<ImportKind | null>(null);
   const [editor, setEditor] = useState<Record<string, unknown> | null>(null);
   const [viewing, setViewing] = useState<Record<string, unknown> | null>(null);
   const [deleting, setDeleting] = useState<{
@@ -320,11 +323,13 @@ export function Catalogs() {
           {error}
         </p>
       )}
-      {tab === "Proveedores" && <SupplierAdministration />}
+      {tab === "Proveedores" && <SupplierAdministration onImport={() => setImportKind("suppliers")} />}
       {["Clientes", "Productos", "Almacenes"].includes(tab) && (
         <>
           <div className="hd">
             <h2>{tab}</h2>
+            <div className="csv-catalog-actions">
+            {!warehouse && <button type="button" className="secondary-btn" onClick={() => setImportKind(product ? "products" : "customers")}><Upload size={16} /> Importar CSV</button>}
             <button
               className="btn"
               aria-label="+ Nuevo registro"
@@ -336,6 +341,7 @@ export function Catalogs() {
               <Icon name="plus" size={15} />
               Nuevo registro
             </button>
+            </div>
           </div>
           <Records
             sortable
@@ -482,6 +488,7 @@ export function Catalogs() {
       )}
       {tab === "Categorías" && <Categories />}
       {tab === "Empresa" && <Company />}
+      {importKind && <CsvImportModal kind={importKind} onClose={() => setImportKind(null)} />}
       {viewing && (
         <Modal title={String(viewing.name)} onClose={() => setViewing(null)}>
           {product ? (
