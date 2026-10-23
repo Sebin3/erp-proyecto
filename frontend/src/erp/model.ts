@@ -13,6 +13,142 @@ export type Product = {
   barcode?: string;
   imageUrl?: string;
   registeredAt?: string;
+  categoryId?: string;
+  brandId?: string;
+  unitId?: string;
+};
+export type Company = {
+  id: string;
+  taxId: string;
+  legalName: string;
+  tradeName?: string;
+  fiscalAddress: string;
+  baseCurrency: string;
+  taxRegime?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  active: boolean;
+};
+export type Branch = {
+  id: string;
+  companyId: string;
+  code: string;
+  name: string;
+  address: string;
+  phone?: string;
+  active: boolean;
+};
+export type MasterCategory = {
+  id: string;
+  code: string;
+  name: string;
+  parentId?: string;
+  active: boolean;
+};
+export type Brand = {
+  id: string;
+  code: string;
+  name: string;
+  countryOfOrigin?: string;
+  active: boolean;
+};
+export type UnitOfMeasure = {
+  id: string;
+  code: string;
+  name: string;
+  abbreviation: string;
+  precision: number;
+  active: boolean;
+};
+export type UnitConversion = {
+  id: string;
+  productId?: string;
+  fromUnitId: string;
+  toUnitId: string;
+  factor: number;
+  validFrom: string;
+  validTo?: string;
+  active: boolean;
+};
+export type Transporter = {
+  id: string;
+  document: string;
+  legalName: string;
+  license?: string;
+  vehicles?: string;
+  drivers?: string;
+  contact?: string;
+  phone?: string;
+  email?: string;
+  active: boolean;
+};
+export type Seller = {
+  id: string;
+  code: string;
+  name: string;
+  commissionPct: number;
+  monthlyTarget: number;
+  zoneId?: string;
+  userId?: string;
+  active: boolean;
+};
+export type Zone = {
+  id: string;
+  code: string;
+  name: string;
+  route?: string;
+  sellerId?: string;
+  active: boolean;
+};
+export type Currency = {
+  id: string;
+  isoCode: string;
+  name: string;
+  symbol: string;
+  active: boolean;
+};
+export type ExchangeRate = {
+  id: string;
+  currencyId: string;
+  date: string;
+  buyRate: number;
+  sellRate: number;
+  active: boolean;
+};
+export type Tax = {
+  id: string;
+  code: string;
+  name: string;
+  percentage: number;
+  type: "IGV" | "ISC" | "Exonerado" | "Otro";
+  validFrom: string;
+  active: boolean;
+};
+export type PaymentMethod = {
+  id: string;
+  code: string;
+  name: string;
+  creditDays: number;
+  type: "Contado" | "Crédito" | "Electrónico" | "Otro";
+  active: boolean;
+};
+export type PriceList = {
+  id: string;
+  code: string;
+  name: string;
+  currencyId: string;
+  validFrom: string;
+  validTo?: string;
+  active: boolean;
+};
+export type PriceListItem = {
+  id: string;
+  priceListId: string;
+  productId: string;
+  minQuantity: number;
+  price: number;
+  active: boolean;
 };
 export type Party = {
   id: string;
@@ -36,6 +172,9 @@ export type Party = {
   department?: string;
   paymentTerms?: string;
   currency?: string;
+  zoneId?: string;
+  sellerId?: string;
+  priceListId?: string;
   estimatedDeliveryDays?: number;
   suppliedCategories?: string[];
   commercialNotes?: string;
@@ -50,6 +189,9 @@ export type Warehouse = {
   name: string;
   branch: string;
   active: boolean;
+  code?: string;
+  branchId?: string;
+  type?: "Principal" | "Secundario" | "Tránsito";
 };
 export type Line = {
   productId: string;
@@ -167,6 +309,8 @@ export const permissionCatalog: PermissionDefinition[] = [
   { id: "inventory.manage", group: "Inventario", label: "Gestionar movimientos de inventario" },
   { id: "reports.view", group: "Gestión", label: "Consultar analítica y reportes" },
   { id: "catalogs.manage", group: "Gestión", label: "Gestionar mantenimientos" },
+  { id: "masters.view", group: "Gestión", label: "Consultar datos maestros" },
+  { id: "masters.manage", group: "Gestión", label: "Gestionar datos maestros" },
   { id: "access.manage", group: "Gestión", label: "Gestionar usuarios y roles" },
   { id: "audit.view", group: "Gestión", label: "Consultar auditoría" },
 ];
@@ -188,6 +332,8 @@ export const defaultAccessRoles = (): ErpRole[] => [
       "inventory.manage",
       "reports.view",
       "catalogs.manage",
+      "masters.view",
+      "masters.manage",
       "access.manage",
       "audit.view",
     ],
@@ -211,6 +357,8 @@ export const defaultAccessRoles = (): ErpRole[] => [
       "inventory.manage",
       "reports.view",
       "catalogs.manage",
+      "masters.view",
+      "masters.manage",
       "audit.view",
     ],
     active: true,
@@ -321,6 +469,21 @@ export type State = {
   suppliers: Party[];
   warehouses: Warehouse[];
   categories: string[];
+  companies?: Company[];
+  branches?: Branch[];
+  masterCategories?: MasterCategory[];
+  brands?: Brand[];
+  units?: UnitOfMeasure[];
+  unitConversions?: UnitConversion[];
+  transporters?: Transporter[];
+  sellers?: Seller[];
+  zones?: Zone[];
+  currencies?: Currency[];
+  exchangeRates?: ExchangeRate[];
+  taxes?: Tax[];
+  paymentMethods?: PaymentMethod[];
+  priceLists?: PriceList[];
+  priceListItems?: PriceListItem[];
   deletedCategories?: string[];
   documents: Document[];
   quotes: Quote[];
@@ -868,10 +1031,58 @@ export function initialState(): State {
         active: true,
       },
     ],
+    companies: [
+      {
+        id: "EMP-001",
+        taxId: "",
+        legalName: "EnterpriseCloud S.A.C.",
+        fiscalAddress: "",
+        baseCurrency: "PEN",
+        active: true,
+      },
+    ],
+    branches: [
+      {
+        id: "SUC-001",
+        companyId: "EMP-001",
+        code: "LIM-01",
+        name: "Sede central · Lima",
+        address: "",
+        active: true,
+      },
+      {
+        id: "SUC-002",
+        companyId: "EMP-001",
+        code: "ARE-01",
+        name: "Sucursal Arequipa",
+        address: "",
+        active: true,
+      },
+    ],
     categories: [
       "Bolsas", "Envases", "Materia prima", "PVC", "Embalaje",
       "Adhesivos", "Seguridad industrial", "Limpieza", "Químicos", "Accesorios",
     ],
+    masterCategories: [
+      "Bolsas", "Envases", "Materia prima", "PVC", "Embalaje",
+      "Adhesivos", "Seguridad industrial", "Limpieza", "Químicos", "Accesorios",
+    ].map((name, index) => ({
+      id: `CAT-${String(index + 1).padStart(3, "0")}`,
+      code: `CAT-${String(index + 1).padStart(3, "0")}`,
+      name,
+      active: true,
+    })),
+    brands: [],
+    units: [
+      { id: "UND", code: "UND", name: "Unidad", abbreviation: "UND", precision: 0, active: true },
+      { id: "KG", code: "KG", name: "Kilogramo", abbreviation: "KG", precision: 3, active: true },
+      { id: "ROL", code: "ROL", name: "Rollo", abbreviation: "ROL", precision: 0, active: true },
+      { id: "CJA", code: "CJA", name: "Caja", abbreviation: "CJA", precision: 0, active: true },
+      { id: "BLS", code: "BLS", name: "Bolsa", abbreviation: "BLS", precision: 0, active: true },
+      { id: "PAQ", code: "PAQ", name: "Paquete", abbreviation: "PAQ", precision: 0, active: true },
+      { id: "MLL", code: "MLL", name: "Millar", abbreviation: "MLL", precision: 0, active: true },
+    ],
+    unitConversions: [],
     documents: [],
     quotes: [],
     movements: [],

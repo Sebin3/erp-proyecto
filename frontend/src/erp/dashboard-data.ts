@@ -1,5 +1,5 @@
 import { today, stockOf, type State, type Document } from "./model.ts";
-export type ChartPeriod = "Semanal" | "Mensual" | "Trimestral";
+export type ChartPeriod = "Diario" | "Semanal" | "Mensual" | "Trimestral";
 const day = 86400000;
 const timestamp = (date: string) => Date.parse(`${date}T00:00:00Z`);
 const dateKey = (date: Date) => date.toISOString().slice(0, 10);
@@ -250,6 +250,7 @@ export function dashboardData(state: State, now = today()) {
   };
 }
 export function chartBuckets(state: State, period: ChartPeriod, now = today()) {
+  if (period === "Diario") return dailyChartBuckets(state, now);
   const current = new Date(timestamp(now));
   const count = period === "Semanal" ? 8 : period === "Mensual" ? 6 : 4;
   const boundary = (offset: number) => {
@@ -286,9 +287,10 @@ export function chartBuckets(state: State, period: ChartPeriod, now = today()) {
         doc.date < end &&
         doc.date <= now,
     );
+    const finalDay = dateKey(new Date(timestamp(end) - day));
     return {
       start,
-      end: dateKey(new Date(timestamp(end) - day)),
+      end: finalDay > now ? now : finalDay,
       label,
       sales: docs
         .filter((d) => d.kind === "CP")

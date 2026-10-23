@@ -99,7 +99,7 @@ export const routes = [
   },
   {
     group: "Gestión",
-    name: "Mantenimientos",
+    name: "Maestros",
     path: "/mantenimientos",
     icon: "settings",
   },

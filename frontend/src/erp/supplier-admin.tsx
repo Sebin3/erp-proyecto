@@ -135,6 +135,8 @@ export function SupplierForm({
         },
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const currencies = (state.currencies ?? []).filter((currency) => currency.active || currency.isoCode === draft.currency);
+  const paymentMethods = (state.paymentMethods ?? []).filter((method) => method.active || method.name === draft.paymentTerms);
   const field = (
     key: keyof Party,
     label: string,
@@ -286,7 +288,17 @@ export function SupplierForm({
             Condiciones comerciales
           </h3>
           <div className="form-grid">
-            {field("paymentTerms", "Condición de pago")}
+            <label>
+              Condición de pago <span className="optional"> · opcional</span>
+              <select
+                aria-label="Condición de pago"
+                value={draft.paymentTerms ?? ""}
+                onChange={(e) => setDraft({ ...draft, paymentTerms: e.target.value })}
+              >
+                <option value="">No registrada</option>
+                {paymentMethods.map((method) => <option key={method.id}>{method.name}</option>)}
+              </select>
+            </label>
             <label>
               Moneda habitual <span className="optional">· opcional</span>
               <select
@@ -296,16 +308,7 @@ export function SupplierForm({
                 }
               >
                 <option value="">No registrado</option>
-                {[
-                  ...new Set([
-                    "PEN",
-                    "USD",
-                    "EUR",
-                    ...(draft.currency ? [draft.currency] : []),
-                  ]),
-                ].map((currency) => (
-                  <option key={currency}>{currency}</option>
-                ))}
+                {currencies.map((currency) => <option key={currency.id}>{currency.isoCode}</option>)}
               </select>
             </label>
             {field(

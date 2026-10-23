@@ -1,5 +1,5 @@
 import { ensurePurchasePayables } from "./purchase-payables";
-import { cleanBusinessData } from "./business-cleanup";
+import { cleanBusinessData, clearDemoOperations } from "./business-cleanup";
 import {
   createContext,
   useContext,
@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { ensureAccessControl, initialState, type State } from "./model";
+import { ensureMasterData } from "./master-migrations";
 
 const KEY = "enterprisecloud-integrated-erp-v1";
 const OLD_BACKUP = `${KEY}-before-2026-10-16-cleanup`;
@@ -24,6 +25,7 @@ function read(): State {
     const raw = localStorage.getItem(KEY);
     if (!raw) {
       const fresh = initialState();
+      ensureMasterData(fresh);
       localStorage.setItem(KEY, JSON.stringify(fresh));
       localStorage.removeItem(OLD_BACKUP);
       return fresh;
@@ -44,10 +46,12 @@ function read(): State {
       !state.settings
     ) throw Error("Los datos guardados no tienen un formato compatible.");
     const cleaned = cleanBusinessData(state);
+    const demoOperationsCleared = clearDemoOperations(state);
     const accessUpdated = ensureAccessControl(state);
+    const mastersUpdated = ensureMasterData(state);
     const payablesUpdated = ensurePurchasePayables(state);
     // Commit before returning so reloads and other tabs cannot restore demo data.
-    if (cleaned || accessUpdated || payablesUpdated)
+    if (cleaned || demoOperationsCleared || accessUpdated || mastersUpdated || payablesUpdated)
       localStorage.setItem(KEY, JSON.stringify(state));
     localStorage.removeItem(OLD_BACKUP);
     return state;

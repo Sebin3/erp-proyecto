@@ -743,7 +743,7 @@ function LegacyOrderEditor({
               value={draft.method}
               onChange={(e) => update("method", e.target.value)}
             >
-              {methods.map((m) => (
+              {(state.paymentMethods?.filter((method) => method.active).map((method) => method.name) ?? methods).map((m) => (
                 <option key={m}>{m}</option>
               ))}
             </select>

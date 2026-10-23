@@ -2,11 +2,11 @@ import { SupplierDetailsTrigger, matchesSupplier } from "./erp/suppliers";
 import { Component, useEffect, useState, type ReactNode } from "react";
 import { ErpProvider, useErp } from "./erp/store";
 import { Operations, Quotes, routes, administrationRoutes } from "./erp/pages";
-import { Catalogs } from "./erp/catalogs";
+import { Catalogs, type Catalog } from "./erp/catalogs";
 import { AccessControl, ProfileDrawer, avatarToneClass, userInitials, type AccessSection } from "./erp/access-control";
 import { Dashboard, Reports } from "./erp/reports";
 import { Modal } from "./erp/ui";
-import { Icon, moduleIcon } from "./erp/icons";
+import { Icon, moduleIcon, type IconName } from "./erp/icons";
 import { ToastHost } from "./erp/toast";
 import { EnterpriseCloudLogo } from "./erp/brand-logo";
 const aliases: Record<string, string> = {
@@ -21,7 +21,30 @@ const aliases: Record<string, string> = {
   "/finanzas/cuentas-por-cobrar": "/estado-cuenta",
   "/usuarios-roles": "/administracion/usuarios",
   "/administracion": "/administracion/usuarios",
+  "/maestros": "/mantenimientos",
 };
+const masterSidebarRoutes: Array<{ name: string; path: string; tab: Catalog; icon: IconName }> = [
+  { name: "Empresa", path: "/maestros/empresa", tab: "Empresa", icon: "building" },
+  { name: "Sucursales", path: "/maestros/sucursales", tab: "Sucursales", icon: "panel" },
+  { name: "Almacenes", path: "/maestros/almacenes", tab: "Almacenes", icon: "stock" },
+  { name: "Productos", path: "/maestros/productos", tab: "Productos", icon: "empty" },
+  { name: "Categorías", path: "/maestros/categorias", tab: "Categorías", icon: "dashboard" },
+  { name: "Marcas", path: "/maestros/marcas", tab: "Marcas", icon: "brand" },
+  { name: "Unidades de medida", path: "/maestros/unidades", tab: "Unidades", icon: "filter" },
+  { name: "Conversiones", path: "/maestros/conversiones", tab: "Conversiones", icon: "arrow" },
+  { name: "Clientes", path: "/maestros/clientes", tab: "Clientes", icon: "users" },
+  { name: "Proveedores", path: "/maestros/proveedores", tab: "Proveedores", icon: "purchase" },
+  { name: "Transportistas", path: "/maestros/transportistas", tab: "Transportistas", icon: "purchase" },
+  { name: "Vendedores", path: "/maestros/vendedores", tab: "Vendedores", icon: "users" },
+  { name: "Zonas", path: "/maestros/zonas", tab: "Zonas", icon: "panel" },
+  { name: "Monedas y tipos de cambio", path: "/maestros/monedas", tab: "Monedas", icon: "wallet" },
+  { name: "Impuestos", path: "/maestros/impuestos", tab: "Impuestos", icon: "invoice" },
+  { name: "Formas de pago", path: "/maestros/formas-pago", tab: "Formas de pago", icon: "wallet" },
+  { name: "Listas de precios", path: "/maestros/listas-precios", tab: "Listas de precios", icon: "line" },
+];
+const masterTabByPath = Object.fromEntries(
+  masterSidebarRoutes.map((route) => [route.path, route.tab]),
+) as Record<string, Catalog>;
 function Shell() {
   const { state, storageError } = useErp();
   const [path, setPath] = useState(
@@ -98,19 +121,26 @@ function Shell() {
     return () => document.removeEventListener("keydown", key);
   }, []);
   const current = [...administrationRoutes, ...routes].find((r) => r.path === path);
+  const isMastersPath = path === "/mantenimientos" || path.startsWith("/maestros/");
   const currentGroup = path.startsWith("/administracion/")
     ? "Administración"
+    : isMastersPath
+      ? "Maestros"
     : routes.find((r) => r.path === path)?.group ?? "Inicio";
   useEffect(() => {
-    const group = routes.find((r) => r.path === path)?.group;
+    const group = isMastersPath
+      ? "Maestros"
+      : routes.find((r) => r.path === path)?.group;
     if (group) setClosedGroups((list) => list.filter((g) => g !== group));
   }, [path]);
-  const groups = [...new Set(routes.map((r) => r.group))];
+  const groups = [...new Set(routes.map((r) => r.group))].flatMap((group) =>
+    group === "Administración" ? ["Maestros", group] : [group],
+  );
   let page;
   if (path === "/dashboard") page = <Dashboard />;
   else if (path === "/cotizacion") page = <Quotes />;
   else if (path === "/reportes") page = <Reports />;
-  else if (path === "/mantenimientos") page = <Catalogs />;
+  else if (isMastersPath) page = <Catalogs key={path} initialTab={masterTabByPath[path]} />;
   else if (path.startsWith("/administracion/")) {
     const section: AccessSection = path.endsWith("/roles")
       ? "roles"
@@ -188,8 +218,20 @@ function Shell() {
                 className={`navigation-submenu ${!collapsed && closedGroups.includes(group) ? "is-closed" : ""}`}
               >
                 <div className="navigation-submenu-inner">
-                  {routes
-                    .filter((r) => r.group === group)
+                  {group === "Maestros"
+                    ? masterSidebarRoutes.map((child) => (
+                        <a
+                          key={child.path}
+                          href={child.path}
+                          className={path === child.path ? "menu-link is-child active" : "menu-link is-child"}
+                          aria-current={path === child.path ? "page" : undefined}
+                        >
+                          <Icon name={child.icon} size={16} />
+                          {child.name}
+                        </a>
+                      ))
+                    : routes
+                    .filter((r) => r.group === group && r.path !== "/mantenimientos")
                     .map((r) => {
                       const isAdministration = r.path === "/administracion/usuarios";
                       if (isAdministration) {

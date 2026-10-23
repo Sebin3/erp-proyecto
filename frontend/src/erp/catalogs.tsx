@@ -1,11 +1,11 @@
 import { SupplierAdministration, CatalogDeleteDialog } from "./supplier-admin";
 import { CustomerEditor } from "./customers";
 import { deleteCategory, type CatalogKind } from "./catalog-logic";
-import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload, UsersRound, Package, Warehouse as WarehouseIcon } from "lucide-react";
+import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload, UsersRound, Package, Warehouse as WarehouseIcon, Building2, Tags, Ruler, ArrowRightLeft, MapPin } from "lucide-react";
 import { ProductDetails } from "./products";
 import { CsvImportModal } from "./csv-import-modal";
 import type { ImportKind } from "./csv-import";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { useErp } from "./store";
 import {
@@ -14,19 +14,35 @@ import {
   type Party,
   type Product,
   type Warehouse,
+  type Branch,
+  type Brand,
+  type UnitOfMeasure,
+  type UnitConversion,
 } from "./model";
 import { Modal, Records, Tag } from "./ui";
 import { toast } from "./toast";
-type Catalog =
+import { Currencies, PaymentMethods, PriceLists, Sellers, Taxes, Transporters, Zones } from "./master-extended";
+export type Catalog =
   | "Clientes"
   | "Productos"
   | "Proveedores"
   | "Almacenes"
   | "Categorías"
-  | "Empresa";
-export function Catalogs() {
+  | "Empresa"
+  | "Sucursales"
+  | "Marcas"
+  | "Unidades"
+  | "Conversiones"
+  | "Transportistas"
+  | "Vendedores"
+  | "Zonas"
+  | "Monedas"
+  | "Impuestos"
+  | "Formas de pago"
+  | "Listas de precios";
+export function Catalogs({ initialTab }: { initialTab?: Catalog } = {}) {
   const { state, transact } = useErp();
-  const [tab, setTab] = useState<Catalog>("Clientes");
+  const [tab, setTab] = useState<Catalog>(initialTab ?? "Empresa");
   const [importKind, setImportKind] = useState<ImportKind | null>(null);
   const [editor, setEditor] = useState<Record<string, unknown> | null>(null);
   const [viewing, setViewing] = useState<Record<string, unknown> | null>(null);
@@ -37,14 +53,15 @@ export function Catalogs() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [error, setError] = useState("");
   const [active, setActive] = useState("Todos");
-  const catalogs: Catalog[] = [
-    "Clientes",
-    "Productos",
-    "Proveedores",
-    "Almacenes",
-    "Categorías",
-    "Empresa",
+  const groups = [
+    { id: "structure", label: "Empresa y estructura", description: "La organización que sostiene la operación.", tabs: ["Empresa", "Sucursales", "Almacenes"] as Catalog[] },
+    { id: "products", label: "Productos", description: "Catálogo, clasificación y unidades.", tabs: ["Productos", "Categorías", "Marcas", "Unidades", "Conversiones"] as Catalog[] },
+    { id: "parties", label: "Terceros", description: "Clientes, proveedores y transporte compartidos.", tabs: ["Clientes", "Proveedores", "Transportistas"] as Catalog[] },
+    { id: "commercial", label: "Comercial", description: "Responsables y segmentación de ventas.", tabs: ["Vendedores", "Zonas"] as Catalog[] },
+    { id: "configuration", label: "Configuración", description: "Monedas, tributos, pagos y precios.", tabs: ["Monedas", "Impuestos", "Formas de pago", "Listas de precios"] as Catalog[] },
   ];
+  const currentGroup = groups.find((group) => group.tabs.includes(tab)) ?? groups[0];
+  const catalogs = currentGroup.tabs;
   const source =
     tab === "Clientes"
       ? state.customers
@@ -82,9 +99,26 @@ export function Catalogs() {
         type="button"
         aria-label={`Editar ${record.name}`}
         title="Editar"
-        onClick={() => {
+      onClick={() => {
           setError("");
-          setEditor(record);
+          if (tab === "Productos") {
+            const productRecord = record as unknown as Product;
+            setEditor({
+              ...record,
+              categoryId: productRecord.categoryId ?? state.masterCategories?.find((category) => category.name === productRecord.category)?.id ?? "",
+              unitId: productRecord.unitId ?? state.units?.find((unit) => unit.code === productRecord.unit)?.id ?? "",
+            });
+          } else if (tab === "Almacenes") {
+            const warehouseRecord = record as unknown as Warehouse;
+            setEditor({
+              ...record,
+              code: warehouseRecord.code ?? warehouseRecord.id,
+              branchId: warehouseRecord.branchId ?? state.branches?.find((branch) => branch.name === warehouseRecord.branch)?.id ?? "",
+              type: warehouseRecord.type ?? "Principal",
+            });
+          } else {
+            setEditor(record);
+          }
         }}
       >
         <Pencil />
@@ -103,21 +137,24 @@ export function Catalogs() {
   );
   const product = tab === "Productos";
   const warehouse = tab === "Almacenes";
+  const directory = ["Clientes", "Productos", "Almacenes"].includes(tab);
+  const directoryModule = tab === "Productos" ? "1.4" : tab === "Almacenes" ? "1.3" : tab === "Clientes" ? "1.9" : "1.10";
   const emptyIcon = product ? <Package size={23} /> : warehouse ? <WarehouseIcon size={23} /> : <UsersRound size={23} />;
   const fields = product
-    ? [
-        "name",
-        "category",
-        "unit",
-        "cost",
-        "price",
-        "minimum",
-        "description",
-        "sku",
-        "barcode",
-      ]
-    : warehouse
-      ? ["name", "branch"]
+      ? [
+          "name",
+          "categoryId",
+          "unitId",
+          "brandId",
+          "sku",
+          "barcode",
+          "cost",
+          "price",
+          "minimum",
+          "description",
+        ]
+      : warehouse
+        ? ["code", "name", "branchId", "type"]
       : [
           "name",
           "taxId",
@@ -132,15 +169,21 @@ export function Catalogs() {
         ];
   const labels: Record<string, string> = {
     name: "Nombre / razón social",
+    code: "Código interno",
     category: "Categoría",
+    categoryId: "Categoría",
     unit: "Unidad",
+    unitId: "Unidad de medida",
     cost: "Costo unitario",
     price: "Precio de venta (IGV incluido)",
     minimum: "Stock mínimo",
     description: "Descripción",
     sku: "SKU (opcional)",
     barcode: "Código de barras (opcional)",
+    brandId: "Marca",
     branch: "Sucursal",
+    branchId: "Sucursal",
+    type: "Tipo de almacén",
     taxId: "RUC / DNI",
     contact: "Contacto",
     phone: "Teléfono",
@@ -164,14 +207,20 @@ export function Catalogs() {
       ? {
           name: "",
           category: state.categories[0] ?? "",
+          categoryId: state.masterCategories?.find((category) => category.name === state.categories[0])?.id ?? "",
           unit: "UND",
+          unitId: state.units?.find((unit) => unit.code === "UND")?.id ?? "",
+          brandId: "",
+          sku: "",
+          barcode: "",
+          description: "",
           cost: 0,
           price: 0,
           minimum: 30,
           active: true,
         }
       : warehouse
-        ? { name: "", branch: "", active: true }
+        ? { code: "", name: "", branch: "", branchId: "", type: "Principal", active: true }
         : {
             name: "",
             taxId: "",
@@ -206,9 +255,11 @@ export function Catalogs() {
           throw Error("Los importes y mínimos no pueden ser negativos.");
       if (product && Number(editor.price) <= 0)
         throw Error("El precio debe ser mayor que cero.");
-      if (product && (!String(editor.category) || !String(editor.unit)))
-        throw Error("Selecciona categoría y unidad.");
-      if (warehouse && !String(editor.branch).trim())
+      if (product && (!String(editor.categoryId ?? editor.category ?? "") || !String(editor.unitId ?? editor.unit ?? "")))
+        throw Error("Selecciona categoría y unidad de medida.");
+      if (warehouse && !String(editor.code ?? "").trim())
+        throw Error("El código del almacén es obligatorio.");
+      if (warehouse && !String(editor.branchId ?? editor.branch ?? "").trim())
         throw Error("La sucursal es obligatoria.");
       transact((s) => {
         const list =
@@ -227,6 +278,9 @@ export function Catalogs() {
               ? "CLI"
               : "PRO";
         const id = String(editor.id ?? `${prefix}-${Date.now().toString(36)}`);
+        const normalizedWarehouseCode = String(editor.code ?? "").trim().toUpperCase();
+        if (warehouse && list.some((r) => r.id !== id && String((r as Warehouse).code ?? r.id).toUpperCase() === normalizedWarehouseCode))
+          throw Error("Ya existe un almacén con ese código.");
         if (
           !product &&
           !warehouse &&
@@ -236,8 +290,36 @@ export function Catalogs() {
         )
           throw Error("Ya existe un tercero con ese documento.");
         const { supplierCategory, ...values } = editor;
+        const selectedCategory = product
+          ? s.masterCategories?.find((category) => category.id === editor.categoryId) ??
+            s.masterCategories?.find((category) => category.name === editor.category)
+          : undefined;
+        const selectedUnit = product
+          ? s.units?.find((unit) => unit.id === editor.unitId) ??
+            s.units?.find((unit) => unit.code === editor.unit)
+          : undefined;
+        const selectedBranch = warehouse
+          ? s.branches?.find((branch) => branch.id === editor.branchId) ??
+            s.branches?.find((branch) => branch.name === editor.branch)
+          : undefined;
         const record = {
           ...values,
+          ...(product
+            ? {
+                category: selectedCategory?.name ?? String(editor.category ?? ""),
+                categoryId: selectedCategory?.id,
+                unit: selectedUnit?.code ?? String(editor.unit ?? ""),
+                unitId: selectedUnit?.id,
+              }
+            : {}),
+          ...(warehouse
+            ? {
+                code: String(editor.code ?? "").trim().toUpperCase() || id,
+                branch: selectedBranch?.name ?? String(editor.branch ?? ""),
+                branchId: selectedBranch?.id,
+                type: editor.type === "Secundario" || editor.type === "Tránsito" ? editor.type : "Principal",
+              }
+            : {}),
           ...(tab === "Proveedores" && supplierCategory !== undefined
             ? { category: supplierCategory }
             : {}),
@@ -278,7 +360,7 @@ export function Catalogs() {
         "Acciones",
       ]
     : warehouse
-      ? ["Código", "Almacén", "Sucursal", "Estado", "Acciones"]
+      ? ["Código", "Almacén", "Sucursal", "Tipo", "Estado", "Acciones"]
       : [
           "Código",
           "Razón social",
@@ -293,18 +375,35 @@ export function Catalogs() {
       <div className="maintenance-module">
       <div className="hd page-head">
         <div>
-          <h1>Mantenimientos</h1>
+          <span className="masters-eyebrow">MÓDULO 01 · DATOS COMPARTIDOS</span>
+          <h1>Maestros</h1>
           <p className="sub no-margin">
-            Catálogos compartidos por compras, ventas e inventario.
+            Fuente única de datos que alimenta compras, ventas, inventario y reportes.
           </p>
         </div>
       </div>
-      <div className="access-tabs" role="tablist" aria-label="Secciones de mantenimiento">
+      <div className="masters-groups" aria-label="Grupos del módulo Maestros">
+        {groups.map((group, index) => (
+          <button
+            key={group.id}
+            type="button"
+            className={`masters-group-card ${currentGroup.id === group.id ? "is-selected" : ""}`}
+            onClick={() => setTab(group.tabs[0])}
+          >
+            <span className="masters-group-icon">
+              {index === 0 ? <Building2 size={19} /> : index === 1 ? <Package size={19} /> : <UsersRound size={19} />}
+            </span>
+            <span><strong>{group.label}</strong><small>{group.description}</small></span>
+            <b>{group.tabs.length}</b>
+          </button>
+        ))}
+      </div>
+      <div className="masters-subnav" role="tablist" aria-label={`Submódulos de ${currentGroup.label}`}>
         {catalogs.map((c) => (
           <button
             key={c}
             id={`catalog-tab-${c.toLowerCase()}`}
-            className="access-tab"
+            className="access-tab masters-subnav-tab"
             role="tab"
             aria-selected={tab === c}
             aria-controls="catalog-panel"
@@ -326,11 +425,11 @@ export function Catalogs() {
         </p>
       )}
       {tab === "Proveedores" && <SupplierAdministration onImport={() => setImportKind("suppliers")} />}
-      {["Clientes", "Productos", "Almacenes"].includes(tab) && (
+      {directory && (
         <>
           <div className="hd maintenance-heading">
             <div className="maintenance-heading-copy">
-              <span className="maintenance-eyebrow">DIRECTORIO · {tab.toUpperCase()}</span>
+              <span className="maintenance-eyebrow">MÓDULO 01 · {directoryModule} · {tab.toUpperCase()}</span>
               <h2>{tab}</h2>
               <p>{source.length} {source.length === 1 ? "registro" : "registros"} en este catálogo</p>
             </div>
@@ -400,9 +499,10 @@ export function Catalogs() {
                   ]
                 : warehouse
                   ? [
-                      r.id,
+                      (r as Warehouse).code ?? r.id,
                       r.name,
                       (r as Warehouse).branch,
+                      (r as Warehouse).type ?? "Principal",
                       r.active ? "Activo" : "Inactivo",
                     ]
                   : [
@@ -429,11 +529,12 @@ export function Catalogs() {
                   ]
                 : warehouse
                   ? [
-                      r.id,
+                      (r as Warehouse).code ?? r.id,
                       <>
                         {r.name}
                       </>,
                       (r as Warehouse).branch,
+                      (r as Warehouse).type ?? "Principal",
                       <Tag value={r.active ? "Activo" : "Inactivo"} />,
                       rowActions({ ...r }),
                     ]
@@ -475,13 +576,14 @@ export function Catalogs() {
                       (r as Product).minimum,
                       r.active ? "Activo" : "Inactivo",
                     ]
-                  : warehouse
-                    ? [
-                        r.id,
-                        r.name,
-                        (r as Warehouse).branch,
-                        r.active ? "Activo" : "Inactivo",
-                      ]
+                    : warehouse
+                      ? [
+                          (r as Warehouse).code ?? r.id,
+                          r.name,
+                          (r as Warehouse).branch,
+                          (r as Warehouse).type ?? "Principal",
+                          r.active ? "Activo" : "Inactivo",
+                        ]
                     : [
                         r.id,
                         r.name,
@@ -500,6 +602,17 @@ export function Catalogs() {
         </>
       )}
       {tab === "Categorías" && <Categories />}
+      {tab === "Sucursales" && <Branches />}
+      {tab === "Marcas" && <Brands />}
+      {tab === "Unidades" && <Units />}
+      {tab === "Conversiones" && <Conversions />}
+      {tab === "Transportistas" && <Transporters />}
+      {tab === "Vendedores" && <Sellers />}
+      {tab === "Zonas" && <Zones />}
+      {tab === "Monedas" && <Currencies />}
+      {tab === "Impuestos" && <Taxes />}
+      {tab === "Formas de pago" && <PaymentMethods />}
+      {tab === "Listas de precios" && <PriceLists />}
       {tab === "Empresa" && <Company />}
       {importKind && <CsvImportModal kind={importKind} onClose={() => setImportKind(null)} />}
       {viewing && (
@@ -580,6 +693,9 @@ export function Catalogs() {
       {editor && tab !== "Clientes" && (
         <Modal
           title={`${editor.id ? "Editar" : "Crear"} · ${tab}`}
+          subtitle={product ? "Ficha comercial y de inventario del producto." : "Define la ubicación y el uso operativo del almacén."}
+          wide={product || warehouse}
+          className="masters-editor-modal"
           onClose={() => setEditor(null)}
         >
           <form
@@ -595,36 +711,77 @@ export function Catalogs() {
             )}
             <div className="form-grid">
               {fields.map((key) => (
-                <label key={key}>
+                <label key={key} className={key === "description" ? "span-two" : undefined}>
                   {labels[key]}
-                  {key === "category" && product ? (
+                  {key === "categoryId" && product ? (
                     <select
-                      value={String(editor[key] ?? "")}
-                      onChange={(e) =>
-                        setEditor({ ...editor, [key]: e.target.value })
-                      }
+                      required
+                      value={String(editor.categoryId ?? state.masterCategories?.find((category) => category.name === editor.category)?.id ?? "")}
+                      onChange={(e) => {
+                        const selected = state.masterCategories?.find((category) => category.id === e.target.value);
+                        setEditor({ ...editor, categoryId: e.target.value, category: selected?.name ?? "" });
+                      }}
                     >
                       <option value="">Selecciona una categoría</option>
-                      {state.categories.map((c) => (
-                        <option key={c}>{c}</option>
+                      {(state.masterCategories ?? []).filter((category) => category.active).map((category) => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
                       ))}
                     </select>
-                  ) : key === "unit" ? (
+                  ) : key === "brandId" && product ? (
                     <select
-                      value={String(editor[key])}
-                      onChange={(e) =>
-                        setEditor({ ...editor, [key]: e.target.value })
-                      }
+                      value={String(editor[key] ?? "")}
+                      onChange={(e) => setEditor({ ...editor, [key]: e.target.value })}
                     >
-                      {["UND", "KG", "ROL", "CJA", "BLS", "PAQ", "MLL"].map(
-                        (u) => (
-                          <option key={u}>{u}</option>
-                        ),
-                      )}
+                      <option value="">Sin marca</option>
+                      {(state.brands ?? []).filter((brand) => brand.active).map((brand) => (
+                        <option key={brand.id} value={brand.id}>{brand.name}</option>
+                      ))}
                     </select>
+                  ) : key === "unitId" && product ? (
+                    <select
+                      required
+                      value={String(editor.unitId ?? state.units?.find((unit) => unit.code === editor.unit)?.id ?? "")}
+                      onChange={(e) => {
+                        const selected = state.units?.find((unit) => unit.id === e.target.value);
+                        setEditor({ ...editor, unitId: e.target.value, unit: selected?.code ?? "" });
+                      }}
+                    >
+                      {(state.units ?? []).filter((unit) => unit.active).map((unit) => (
+                        <option key={unit.id} value={unit.id}>{unit.abbreviation} · {unit.name}</option>
+                      ))}
+                    </select>
+                  ) : key === "branchId" && warehouse ? (
+                    <select
+                      required
+                      value={String(editor.branchId ?? "")}
+                      onChange={(e) => {
+                        const selected = state.branches?.find((branch) => branch.id === e.target.value);
+                        setEditor({ ...editor, branchId: e.target.value, branch: selected?.name ?? "" });
+                      }}
+                    >
+                      <option value="">Selecciona una sucursal</option>
+                      {(state.branches ?? []).filter((branch) => branch.active).map((branch) => (
+                        <option key={branch.id} value={branch.id}>{branch.code} · {branch.name}</option>
+                      ))}
+                    </select>
+                  ) : key === "type" && warehouse ? (
+                    <select
+                      value={String(editor.type ?? "Principal")}
+                      onChange={(e) => setEditor({ ...editor, type: e.target.value })}
+                    >
+                      <option>Principal</option>
+                      <option>Secundario</option>
+                      <option>Tránsito</option>
+                    </select>
+                  ) : key === "description" ? (
+                    <textarea
+                      rows={3}
+                      value={String(editor[key] ?? "")}
+                      onChange={(e) => setEditor({ ...editor, [key]: e.target.value })}
+                    />
                   ) : (
                     <input
-                      required={["name", "taxId", "branch", "price"].includes(
+                      required={["name", "taxId", "code", "price"].includes(
                         key,
                       )}
                       type={
@@ -700,7 +857,7 @@ function Categories() {
   return (
     <section className="categories-page">
       <div className="categories-heading">
-        <div><span className="categories-eyebrow">CATÁLOGO DE PRODUCTOS</span><h2>Categorías de producto</h2><p className="muted">Organiza tu catálogo por familias de productos.</p></div>
+        <div><span className="categories-eyebrow">MÓDULO 01 · 1.5 · CATÁLOGO DE PRODUCTOS</span><h2>Categorías de producto</h2><p className="muted">Organiza tu catálogo por familias de productos.</p></div>
         <span className="categories-total"><FolderOpen size={18} />{state.categories.length} categorías</span>
       </div>
       <div className="categories-layout">
@@ -730,6 +887,13 @@ function Categories() {
                 throw Error("La categoría ya existe.");
               const category = name.trim();
               s.categories.push(category);
+              s.masterCategories ??= [];
+              s.masterCategories.push({
+                id: `CAT-${Date.now().toString(36).toUpperCase()}`,
+                code: `CAT-${String(s.masterCategories.length + 1).padStart(3, "0")}`,
+                name: category,
+                active: true,
+              });
               s.deletedCategories = s.deletedCategories?.filter((deleted) => deleted !== category);
               s.audit.unshift({
                 id: crypto.randomUUID(),
@@ -774,72 +938,254 @@ function Categories() {
 }
 function Company() {
   const { state, transact } = useErp();
-  const [company, setCompany] = useState(state.settings.company);
+  const companyMaster = state.companies?.[0];
+  const [company, setCompany] = useState(companyMaster?.legalName ?? state.settings.company);
+  const [tradeName, setTradeName] = useState(companyMaster?.tradeName ?? "");
+  const [taxId, setTaxId] = useState(companyMaster?.taxId ?? "");
+  const [address, setAddress] = useState(companyMaster?.fiscalAddress ?? "");
+  const [taxRegime, setTaxRegime] = useState(companyMaster?.taxRegime ?? "");
+  const [phone, setPhone] = useState(companyMaster?.phone ?? "");
+  const [email, setEmail] = useState(companyMaster?.email ?? "");
+  const [website, setWebsite] = useState(companyMaster?.website ?? "");
+  const [currency, setCurrency] = useState(companyMaster?.baseCurrency ?? state.settings.currency);
+  const [active, setActive] = useState(companyMaster?.active !== false);
   const [error, setError] = useState("");
+  const availableCurrencies = (state.currencies ?? []).filter((item) => item.active || item.isoCode === currency);
+  const branchCount = state.branches?.filter((branch) => branch.companyId === companyMaster?.id).length ?? 0;
   return (
-    <section className="card">
-      <h2>Empresa y respaldo</h2>
+    <section className="masters-section">
+      <MasterSectionHeader module="1.1" title="Empresa" description="Identidad fiscal y parámetros base de la organización." count={state.companies?.length ?? 1} icon={<Building2 size={20} />} />
+      <div className="company-master-layout">
+      <aside className="company-identity">
+        <div className="company-identity-top">
+          <span className="company-identity-mark"><Building2 size={21} /></span>
+          <span className="company-record-status">{active ? "Activa" : "Inactiva"}</span>
+        </div>
+        <span className="company-identity-label">REGISTRO PRINCIPAL</span>
+        <h3>{tradeName || company || state.settings.company}</h3>
+        <p>{tradeName ? company : "Empresa administradora del espacio de trabajo."}</p>
+        <dl>
+          <div><dt>Código interno</dt><dd>{companyMaster?.id ?? "EMP-001"}</dd></div>
+          <div><dt>RUC</dt><dd>{taxId || "Pendiente"}</dd></div>
+          <div><dt>Moneda base</dt><dd>{currency}</dd></div>
+          <div><dt>Sucursales</dt><dd>{branchCount}</dd></div>
+        </dl>
+        <div className="company-identity-note">
+          <Icon name="shield" size={14} />
+          <span>Los cambios quedan registrados en auditoría.</span>
+        </div>
+      </aside>
+      <div className="card company-master-card">
+      <div className="company-form-intro">
+        <div>
+          <span className="company-form-eyebrow">DATOS CENTRALES</span>
+          <h3>Información fiscal y operativa</h3>
+          <p>Completa los datos que se utilizarán en documentos, reportes y comprobantes.</p>
+        </div>
+        <span className="company-form-code">{companyMaster?.id ?? "EMP-001"}</span>
+      </div>
       <form
+        className="company-form"
         onSubmit={(e) => {
           e.preventDefault();
           try {
             transact((s) => {
               const nextCompany = company.trim();
-              if (s.settings.company !== nextCompany) {
-                s.settings.company = nextCompany;
-                s.audit.unshift({
-                  id: crypto.randomUUID(),
-                  date: new Date().toISOString(),
-                  action: "Actualizar empresa",
-                  record: nextCompany,
-                });
-              }
+              const nextTaxId = taxId.trim();
+              if (!nextCompany) throw Error("La razón social es obligatoria.");
+              if (nextTaxId && !/^\d{11}$/.test(nextTaxId)) throw Error("El RUC debe contener 11 dígitos.");
+              if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw Error("Ingresa un correo empresarial válido.");
+              s.companies ??= [];
+              const current = s.companies[0] ?? { id: "EMP-001", taxId: "", legalName: nextCompany, fiscalAddress: "", baseCurrency: currency, active: true };
+              current.legalName = nextCompany;
+              current.tradeName = tradeName.trim() || undefined;
+              current.taxId = nextTaxId;
+              current.fiscalAddress = address.trim();
+              current.taxRegime = taxRegime || undefined;
+              current.phone = phone.trim() || undefined;
+              current.email = email.trim() || undefined;
+              current.website = website.trim() || undefined;
+              current.baseCurrency = currency;
+              current.active = active;
+              s.settings.company = nextCompany;
+              s.settings.currency = currency;
+              s.companies[0] = current;
+              s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: "Actualizar datos de empresa", record: nextCompany });
             });
             setError("");
             toast.success("Empresa actualizada correctamente.");
           } catch (err) {
-            const message = err instanceof Error ? err.message : "Error";
+            const message = err instanceof Error ? err.message : "No se pudo actualizar la empresa.";
             setError(message);
             toast.error(message);
           }
         }}
       >
-        <label className="filter-field">
-          Razón social
-          <input
-            required
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          />
-        </label>
-        <p>Moneda operativa: Soles (PEN). Precios con IGV incluido.</p>
-        <button className="btn">Guardar</button>
+        <div className="form-grid">
+          <label className="span-two">Razón social<input required value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Razón social registrada" /></label>
+          <label>Nombre comercial <span className="optional">· opcional</span><input value={tradeName} onChange={(e) => setTradeName(e.target.value)} placeholder="Nombre visible en documentos" /></label>
+          <label>RUC <span className="optional">· 11 dígitos</span><input inputMode="numeric" maxLength={11} value={taxId} onChange={(e) => setTaxId(e.target.value.replace(/\D/g, ""))} placeholder="20123456789" /></label>
+          <label>Régimen tributario<select value={taxRegime} onChange={(e) => setTaxRegime(e.target.value)}><option value="">No especificado</option><option>Régimen General</option><option>Régimen MYPE Tributario</option><option>Régimen Especial</option></select></label>
+          <label>Moneda base<select value={currency} onChange={(e) => setCurrency(e.target.value)}>{availableCurrencies.map((item) => <option key={item.id} value={item.isoCode}>{item.isoCode} · {item.name}</option>)}</select></label>
+          <label className="span-two">Domicilio fiscal<input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección fiscal completa" /></label>
+          <label>Teléfono empresarial<input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 000 0000" /></label>
+          <label>Correo empresarial<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contacto@empresa.com" /></label>
+          <label>Sitio web <span className="optional">· opcional</span><input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://empresa.com" /></label>
+          <label>Estado<select value={active ? "Activo" : "Inactivo"} onChange={(e) => setActive(e.target.value === "Activo")}><option>Activo</option><option>Inactivo</option></select></label>
+        </div>
+        {error && <p className="error" role="alert">{error}</p>}
+        <div className="company-form-footer">
+          <p>La moneda base se utilizará para precios, compras, ventas y reportes.</p>
+          <button className="btn" type="submit">Guardar cambios</button>
+        </div>
       </form>
-      <hr />
-      <button
-        className="secondary-btn"
-        onClick={() => {
-          const url = URL.createObjectURL(
-            new Blob([JSON.stringify(state, null, 2)], {
-              type: "application/json",
-            }),
-          );
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `enterprisecloud-respaldo-${today()}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-          toast.success("Respaldo JSON descargado correctamente.");
-        }}
-      >
-        <Icon name="download" size={15} />
-        Descargar respaldo JSON
-      </button>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      </div>
+      </div>
     </section>
   );
+}
+
+function MasterSectionHeader({
+  module,
+  title,
+  description,
+  count,
+  icon,
+  onAdd,
+}: {
+  module: string;
+  title: string;
+  description: string;
+  count: number;
+  icon: ReactNode;
+  onAdd?: () => void;
+}) {
+  return (
+    <div className="masters-section-head">
+      <div className="masters-section-title" data-master-module={module}>
+        <span className="masters-section-icon">{icon}</span>
+        <div>
+          <span className="masters-eyebrow">MÓDULO 01 · {module}</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+      </div>
+      <div className="masters-section-actions">
+        <span className="masters-count">{count} {count === 1 ? "registro" : "registros"}</span>
+        {onAdd && <button type="button" className="btn" onClick={onAdd}><Plus size={15} /> Nuevo registro</button>}
+      </div>
+    </div>
+  );
+}
+
+function Branches() {
+  const { state, transact } = useErp();
+  const [editor, setEditor] = useState<Partial<Branch> | null>(null);
+  const [error, setError] = useState("");
+  const branches = state.branches ?? [];
+  const save = () => {
+    if (!editor) return;
+    try {
+      const name = String(editor.name ?? "").trim();
+      const code = String(editor.code ?? "").trim().toUpperCase();
+      if (!name || !code) throw Error("El código y nombre de la sucursal son obligatorios.");
+      transact((s) => {
+        s.branches ??= [];
+        if (s.branches.some((branch) => branch.id !== editor.id && (branch.code.toLowerCase() === code.toLowerCase() || branch.name.toLowerCase() === name.toLowerCase())))
+          throw Error("Ya existe una sucursal con ese código o nombre.");
+        const id = editor.id ?? `SUC-${Date.now().toString(36).toUpperCase()}`;
+        const value: Branch = { id, companyId: editor.companyId ?? s.companies?.[0]?.id ?? "EMP-001", code, name, address: String(editor.address ?? "").trim(), phone: String(editor.phone ?? "").trim(), active: editor.active !== false };
+        const index = s.branches.findIndex((branch) => branch.id === id);
+        if (index >= 0) s.branches[index] = value;
+        else s.branches.push(value);
+        s.warehouses.forEach((warehouse) => {
+          if (warehouse.branchId === id || warehouse.branch === editor.name) warehouse.branch = name;
+          if (warehouse.branch === name) warehouse.branchId = id;
+        });
+        s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: index >= 0 ? "Editar sucursal" : "Crear sucursal", record: `${code}: ${name}` });
+      });
+      setEditor(null); setError(""); toast.success("Sucursal guardada correctamente.");
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar la sucursal."); }
+  };
+  return <section className="masters-section">
+    <MasterSectionHeader module="1.2" title="Sucursales" description="Define las sedes donde opera la empresa y relaciona sus almacenes." count={branches.length} icon={<MapPin size={20} />} onAdd={() => { setError(""); setEditor({ active: true, companyId: state.companies?.[0]?.id }); }} />
+    <div className="card masters-table-card"><table className="masters-table"><thead><tr><th>Código</th><th>Sucursal</th><th>Dirección</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody>{branches.map((branch) => <tr key={branch.id}><td><code>{branch.code}</code></td><td><strong>{branch.name}</strong></td><td>{branch.address || "No registrada"}</td><td>{branch.phone || "—"}</td><td><Tag value={branch.active ? "Activo" : "Inactivo"} /></td><td><button className="icon-btn" type="button" aria-label={`Editar ${branch.name}`} onClick={() => { setError(""); setEditor({ ...branch }); }}><Pencil size={16} /></button></td></tr>)}</tbody></table>{!branches.length && <div className="masters-empty"><MapPin size={28} /><h3>Aún no hay sucursales</h3><p>Registra la primera sede para organizar almacenes y operaciones.</p></div>}</div>
+    {editor && <Modal title={`${editor.id ? "Editar" : "Nueva"} sucursal`} subtitle="La sucursal se reutiliza en almacenes y documentos." onClose={() => setEditor(null)}><form onSubmit={(event) => { event.preventDefault(); save(); }}><div className="form-grid"><label>Código<input required value={String(editor.code ?? "")} onChange={(e) => setEditor({ ...editor, code: e.target.value.toUpperCase() })} placeholder="LIM-01" /></label><label>Nombre<input required value={String(editor.name ?? "")} onChange={(e) => setEditor({ ...editor, name: e.target.value })} placeholder="Sede central · Lima" /></label><label className="span-two">Dirección<input value={String(editor.address ?? "")} onChange={(e) => setEditor({ ...editor, address: e.target.value })} placeholder="Av. / calle y número" /></label><label>Teléfono<input type="tel" value={String(editor.phone ?? "")} onChange={(e) => setEditor({ ...editor, phone: e.target.value })} placeholder="01 000 0000" /></label><label>Estado<select value={editor.active === false ? "Inactivo" : "Activo"} onChange={(e) => setEditor({ ...editor, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></label></div>{error && <p className="error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditor(null)}>Cancelar</button><button className="btn">Guardar sucursal</button></div></form></Modal>}
+  </section>;
+}
+
+function Brands() {
+  const { state, transact } = useErp();
+  const [editor, setEditor] = useState<Partial<Brand> | null>(null);
+  const [error, setError] = useState("");
+  const brands = state.brands ?? [];
+  const save = () => {
+    if (!editor) return;
+    try {
+      const name = String(editor.name ?? "").trim(); const code = String(editor.code ?? "").trim().toUpperCase();
+      if (!name || !code) throw Error("El código y nombre de la marca son obligatorios.");
+      transact((s) => { s.brands ??= []; if (s.brands.some((brand) => brand.id !== editor.id && (brand.code.toLowerCase() === code.toLowerCase() || brand.name.toLowerCase() === name.toLowerCase()))) throw Error("Ya existe una marca con ese código o nombre."); const id = editor.id ?? `MAR-${Date.now().toString(36).toUpperCase()}`; const value: Brand = { id, code, name, countryOfOrigin: String(editor.countryOfOrigin ?? "").trim(), active: editor.active !== false }; const index = s.brands.findIndex((brand) => brand.id === id); if (index >= 0) s.brands[index] = value; else s.brands.push(value); s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: index >= 0 ? "Editar marca" : "Crear marca", record: `${code}: ${name}` }); });
+      setEditor(null); setError(""); toast.success("Marca guardada correctamente.");
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar la marca."); }
+  };
+  return <section className="masters-section"><MasterSectionHeader module="1.6" title="Marcas" description="Normaliza las marcas para analizar compras, ventas y productos." count={brands.length} icon={<Tags size={20} />} onAdd={() => { setError(""); setEditor({ active: true }); }} /><div className="card masters-table-card"><table className="masters-table"><thead><tr><th>Código</th><th>Marca</th><th>País de origen</th><th>Productos</th><th>Estado</th><th></th></tr></thead><tbody>{brands.map((brand) => <tr key={brand.id}><td><code>{brand.code}</code></td><td><strong>{brand.name}</strong></td><td>{brand.countryOfOrigin || "—"}</td><td>{state.products.filter((product) => product.brandId === brand.id).length}</td><td><Tag value={brand.active ? "Activo" : "Inactivo"} /></td><td><button className="icon-btn" type="button" aria-label={`Editar ${brand.name}`} onClick={() => { setError(""); setEditor({ ...brand }); }}><Pencil size={16} /></button></td></tr>)}</tbody></table>{!brands.length && <div className="masters-empty"><Tags size={28} /><h3>Aún no hay marcas</h3><p>Agrega marcas para completar la ficha de productos.</p></div>}</div>{editor && <Modal title={`${editor.id ? "Editar" : "Nueva"} marca`} subtitle="Identifica las marcas utilizadas por los productos del catálogo." onClose={() => setEditor(null)}><form onSubmit={(event) => { event.preventDefault(); save(); }}><div className="form-grid"><label>Código<input required value={String(editor.code ?? "")} onChange={(e) => setEditor({ ...editor, code: e.target.value.toUpperCase() })} placeholder="MAR-001" /></label><label>Nombre<input required value={String(editor.name ?? "")} onChange={(e) => setEditor({ ...editor, name: e.target.value })} placeholder="Nombre de la marca" /></label><label>País de origen<span className="optional"> · opcional</span><input value={String(editor.countryOfOrigin ?? "")} onChange={(e) => setEditor({ ...editor, countryOfOrigin: e.target.value })} placeholder="Perú" /></label><label>Estado<select value={editor.active === false ? "Inactivo" : "Activo"} onChange={(e) => setEditor({ ...editor, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></label></div>{error && <p className="error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditor(null)}>Cancelar</button><button className="btn">Guardar marca</button></div></form></Modal>}</section>;
+}
+
+function Units() {
+  const { state, transact } = useErp();
+  const [editor, setEditor] = useState<Partial<UnitOfMeasure> | null>(null);
+  const [error, setError] = useState("");
+  const units = state.units ?? [];
+  const save = () => {
+    if (!editor) return;
+    try {
+      const name = String(editor.name ?? "").trim(); const code = String(editor.code ?? "").trim().toUpperCase(); const abbreviation = String(editor.abbreviation ?? "").trim().toUpperCase(); const precision = Number(editor.precision ?? 0);
+      if (!name || !code || !abbreviation) throw Error("Completa código, nombre y abreviatura.");
+      if (!Number.isInteger(precision) || precision < 0 || precision > 6) throw Error("La precisión debe ser un entero entre 0 y 6.");
+      transact((s) => { s.units ??= []; if (s.units.some((unit) => unit.id !== editor.id && (unit.code.toLowerCase() === code.toLowerCase() || unit.abbreviation.toLowerCase() === abbreviation.toLowerCase()))) throw Error("Ya existe una unidad con ese código o abreviatura."); const id = editor.id ?? code; const value: UnitOfMeasure = { id, code, name, abbreviation, precision, active: editor.active !== false }; const index = s.units.findIndex((unit) => unit.id === id); if (index >= 0) s.units[index] = value; else s.units.push(value); s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: index >= 0 ? "Editar unidad" : "Crear unidad", record: `${code}: ${name}` }); });
+      setEditor(null); setError(""); toast.success("Unidad guardada correctamente.");
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar la unidad."); }
+  };
+  return <section className="masters-section"><MasterSectionHeader module="1.7" title="Unidades de medida" description="Controla la unidad base y la precisión permitida por producto." count={units.length} icon={<Ruler size={20} />} onAdd={() => { setError(""); setEditor({ precision: 0, active: true }); }} /><div className="card masters-table-card"><table className="masters-table"><thead><tr><th>Código</th><th>Unidad</th><th>Abreviatura</th><th>Precisión</th><th>Productos</th><th>Estado</th><th></th></tr></thead><tbody>{units.map((unit) => <tr key={unit.id}><td><code>{unit.code}</code></td><td><strong>{unit.name}</strong></td><td>{unit.abbreviation}</td><td>{unit.precision} decimales</td><td>{state.products.filter((product) => product.unit === unit.code || product.unitId === unit.id).length}</td><td><Tag value={unit.active ? "Activo" : "Inactivo"} /></td><td><button className="icon-btn" type="button" aria-label={`Editar ${unit.name}`} onClick={() => { setError(""); setEditor({ ...unit }); }}><Pencil size={16} /></button></td></tr>)}</tbody></table></div>{editor && <Modal title={`${editor.id ? "Editar" : "Nueva"} unidad`} subtitle="La precisión se aplicará en cantidades y conversiones del inventario." onClose={() => setEditor(null)}><form onSubmit={(event) => { event.preventDefault(); save(); }}><div className="form-grid"><label>Código<input required value={String(editor.code ?? "")} onChange={(e) => setEditor({ ...editor, code: e.target.value.toUpperCase() })} placeholder="UND" /></label><label>Nombre<input required value={String(editor.name ?? "")} onChange={(e) => setEditor({ ...editor, name: e.target.value })} placeholder="Unidad" /></label><label>Abreviatura<input required value={String(editor.abbreviation ?? "")} onChange={(e) => setEditor({ ...editor, abbreviation: e.target.value.toUpperCase() })} placeholder="UND" /></label><label>Precisión decimal<input type="number" min="0" max="6" step="1" value={Number(editor.precision ?? 0)} onChange={(e) => setEditor({ ...editor, precision: Number(e.target.value) })} /></label><label>Estado<select value={editor.active === false ? "Inactivo" : "Activo"} onChange={(e) => setEditor({ ...editor, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></label></div>{error && <p className="error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditor(null)}>Cancelar</button><button className="btn">Guardar unidad</button></div></form></Modal>}</section>;
+}
+
+function Conversions() {
+  const { state, transact } = useErp();
+  const [editor, setEditor] = useState<Partial<UnitConversion> | null>(null);
+  const [error, setError] = useState("");
+  const units = (state.units ?? []).filter((unit) => unit.active); const conversions = state.unitConversions ?? [];
+  const save = () => {
+    if (!editor) return;
+    try {
+      const factor = Number(editor.factor);
+      if (!editor.fromUnitId || !editor.toUnitId || editor.fromUnitId === editor.toUnitId)
+        throw Error("Selecciona dos unidades diferentes.");
+      if (!Number.isFinite(factor) || factor <= 0)
+        throw Error("El factor debe ser mayor que cero.");
+      if (!editor.validFrom)
+        throw Error("Indica desde cuándo aplica la conversión.");
+      if (editor.validTo && editor.validTo < editor.validFrom)
+        throw Error("La fecha final no puede ser anterior a la fecha inicial.");
+      transact((s) => {
+        s.unitConversions ??= [];
+        const id = editor.id ?? `CON-${Date.now().toString(36).toUpperCase()}`;
+        const duplicate = s.unitConversions.some((conversion) =>
+          conversion.id !== id &&
+          conversion.productId === (editor.productId || undefined) &&
+          conversion.fromUnitId === editor.fromUnitId &&
+          conversion.toUnitId === editor.toUnitId &&
+          conversion.validFrom === editor.validFrom,
+        );
+        if (duplicate) throw Error("Ya existe una conversión para esa combinación y fecha.");
+        const value: UnitConversion = { id, productId: editor.productId || undefined, fromUnitId: editor.fromUnitId!, toUnitId: editor.toUnitId!, factor, validFrom: editor.validFrom!, validTo: editor.validTo || undefined, active: editor.active !== false };
+        const index = s.unitConversions.findIndex((conversion) => conversion.id === id);
+        if (index >= 0) s.unitConversions[index] = value;
+        else s.unitConversions.push(value);
+        s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: index >= 0 ? "Editar conversión" : "Crear conversión", record: `${value.fromUnitId} → ${value.toUnitId}` });
+      });
+      setEditor(null); setError(""); toast.success("Conversión guardada correctamente.");
+    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar la conversión."); }
+  };
+  const unitName = (id: string) => units.find((unit) => unit.id === id)?.abbreviation ?? id;
+  return <section className="masters-section"><MasterSectionHeader module="1.8" title="Conversiones de unidades" description="Define equivalencias vigentes para compras, inventario y ventas." count={conversions.length} icon={<ArrowRightLeft size={20} />} onAdd={() => { setError(""); setEditor({ validFrom: today(), active: true, factor: 1 }); }} /><div className="card masters-table-card"><table className="masters-table"><thead><tr><th>Producto</th><th>Desde</th><th>Hacia</th><th>Factor</th><th>Vigencia</th><th>Estado</th><th></th></tr></thead><tbody>{conversions.map((conversion) => <tr key={conversion.id}><td>{conversion.productId ? state.products.find((product) => product.id === conversion.productId)?.name ?? conversion.productId : "General"}</td><td>{unitName(conversion.fromUnitId)}</td><td>{unitName(conversion.toUnitId)}</td><td>1 = {conversion.factor}</td><td>{conversion.validFrom}{conversion.validTo ? ` · ${conversion.validTo}` : " · vigente"}</td><td><Tag value={conversion.active ? "Activo" : "Inactivo"} /></td><td><button className="icon-btn" type="button" aria-label="Editar conversión" onClick={() => { setError(""); setEditor({ ...conversion }); }}><Pencil size={16} /></button></td></tr>)}</tbody></table>{!conversions.length && <div className="masters-empty"><ArrowRightLeft size={28} /><h3>Aún no hay conversiones</h3><p>Úsalas cuando una operación requiera equivalencias entre unidades.</p></div>}</div>{editor && <Modal title={`${editor.id ? "Editar" : "Nueva"} conversión`} subtitle="Las conversiones no reemplazan la unidad base del producto." onClose={() => setEditor(null)}><form onSubmit={(event) => { event.preventDefault(); save(); }}><div className="form-grid"><label>Producto (opcional)<select value={String(editor.productId ?? "")} onChange={(e) => setEditor({ ...editor, productId: e.target.value })}><option value="">Conversión general</option>{state.products.filter((product) => product.active).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label><label>Unidad origen<select required value={String(editor.fromUnitId ?? "")} onChange={(e) => setEditor({ ...editor, fromUnitId: e.target.value })}><option value="">Selecciona</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.abbreviation} · {unit.name}</option>)}</select></label><label>Unidad destino<select required value={String(editor.toUnitId ?? "")} onChange={(e) => setEditor({ ...editor, toUnitId: e.target.value })}><option value="">Selecciona</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.abbreviation} · {unit.name}</option>)}</select></label><label>Factor<input required type="number" min="0.000001" step="0.000001" value={Number(editor.factor ?? 1)} onChange={(e) => setEditor({ ...editor, factor: Number(e.target.value) })} /></label><label>Vigente desde<input required type="date" value={String(editor.validFrom ?? "")} onChange={(e) => setEditor({ ...editor, validFrom: e.target.value })} /></label><label>Vigente hasta<input type="date" value={String(editor.validTo ?? "")} onChange={(e) => setEditor({ ...editor, validTo: e.target.value })} /></label></div>{error && <p className="error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditor(null)}>Cancelar</button><button className="btn">Guardar conversión</button></div></form></Modal>}</section>;
 }

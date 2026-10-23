@@ -15,7 +15,9 @@ import {
 import { useErp } from "./store";
 import {
   dashboardData,
+  chartBuckets,
   dailyChartBuckets,
+  type ChartPeriod,
 } from "./dashboard-data";
 import { money, dateLabel, today } from "./model";
 import { ExportMenu, Records, Tag, DocDetail } from "./ui";
@@ -85,9 +87,9 @@ function chartCurve(points: {x: number; y: number}[]) {
     return ` C ${before.x + dx} ${before.y + dx * tangents[i]}, ${p.x - dx} ${p.y - dx * tangents[i + 1]}, ${p.x} ${p.y}`;
   }).join("");
 }
-function ExecutiveChart() {
+function ExecutiveChart({ period }: { period: ChartPeriod }) {
   const { state } = useErp();
-  const data = dailyChartBuckets(state);
+  const data = chartBuckets(state, period);
   const gradient = useId();
   const [active, setActive] = useState<number | null>(null);
   const [width, setWidth] = useState(900);
@@ -109,7 +111,7 @@ function ExecutiveChart() {
   const compact = (n: number) => new Intl.NumberFormat("es-PE", {notation: "compact", maximumFractionDigits: 1}).format(n);
   return <div className="ed-chart ed-line-chart" ref={root}>
     <div className="ed-legend"><span><i />Ventas</span><span><i />Compras</span><small>Importes con IGV · {dateLabel(data[0].start)} – {dateLabel(data.at(-1)!.end)}</small></div>
-    <svg className="enterprise-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Ventas y compras diarias hasta ${dateLabel(data.at(-1)!.end)}`}>
+    <svg className="enterprise-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Ventas y compras agrupadas por ${period.toLowerCase()} hasta ${dateLabel(data.at(-1)!.end)}`}>
       <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--ed-chart-sales)" stopOpacity=".16" /><stop offset="100%" stopColor="var(--ed-chart-sales)" stopOpacity="0" /></linearGradient></defs>
       {[0, 1, 2, 3, 4].map((i) => <g key={i}><line x1={left} x2={width - right} y1={top + plotHeight * i / 4} y2={top + plotHeight * i / 4} stroke="var(--line)" strokeDasharray="3 4" /><text x={left - 10} y={top + plotHeight * i / 4 + 4} textAnchor="end" fill="var(--mute)" fontSize="10">{compact(ceiling * (4 - i) / 4)}</text></g>)}
       <path className="ed-sales-area" d={`${chartCurve(sales)} L ${sales.at(-1)!.x} ${baseline} L ${sales[0].x} ${baseline} Z`} fill={`url(#${gradient})`} />
@@ -132,6 +134,7 @@ export function Dashboard() {
   const raw = dashboardData(state);
   const data = {...raw, alerts: raw.receivables.filter((r) => r.overdue !== null && r.overdue >= -7).sort((a, b) => (b.overdue ?? 0) - (a.overdue ?? 0)).slice(0, 5).map((r) => ({...r, balance: r.doc.balance, type: "Cobrar"}))};
   const [detail, setDetail] = useState("");
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("Diario");
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
@@ -462,10 +465,22 @@ export function Dashboard() {
         <div className="ed-section-head">
           <div>
             <h2>Ventas vs. compras</h2>
-            <p>Ventas y compras del mes, hasta hoy {dateLabel(today())}</p>
+            <p>Comparativa de operaciones hasta hoy {dateLabel(today())}</p>
+          </div>
+          <div className="seg ed-chart-periods" role="group" aria-label="Período del gráfico">
+            {(["Diario", "Semanal", "Mensual", "Trimestral"] as ChartPeriod[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={chartPeriod === option}
+                onClick={() => setChartPeriod(option)}
+              >
+                {option}
+              </button>
+            ))}
           </div>
         </div>
-        <ExecutiveChart />
+        <ExecutiveChart period={chartPeriod} />
       </section>
       <section className="ed-alerts">
         <article className="ed-card">

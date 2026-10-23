@@ -70,19 +70,19 @@ const permissionActions: Array<{ id: PermissionAction; label: string }> = [
 // operativa de la referencia: recurso en filas y acciones en columnas.
 const permissionMatrixRows: PermissionMatrixRow[] = [
   { resource: "Inicio", permissions: { ver: "dashboard.view", exportar: "dashboard.view" } },
-  { resource: "Clientes", permissions: { ver: "catalogs.manage", crear: "catalogs.manage", editar: "catalogs.manage", exportar: "catalogs.manage" } },
+  { resource: "Clientes", permissions: { ver: "masters.view", crear: "masters.manage", editar: "masters.manage", exportar: "masters.view" } },
   { resource: "Cotizaciones", permissions: { ver: "sales.view", crear: "sales.manage", editar: "sales.manage", anular: "sales.manage", exportar: "sales.view" } },
   { resource: "Pedidos de venta", permissions: { ver: "sales.view", crear: "sales.manage", editar: "sales.manage", aprobar: "sales.manage", anular: "sales.manage", exportar: "sales.view" } },
   { resource: "Comprobantes", permissions: { ver: "billing.manage", crear: "billing.manage", editar: "billing.manage", anular: "billing.manage", exportar: "billing.manage" } },
   { resource: "Cuentas por cobrar", permissions: { ver: "collections.manage", crear: "collections.manage", editar: "collections.manage", anular: "collections.manage", exportar: "collections.manage" } },
-  { resource: "Proveedores", permissions: { ver: "catalogs.manage", crear: "catalogs.manage", editar: "catalogs.manage", anular: "catalogs.manage", exportar: "catalogs.manage" } },
+  { resource: "Proveedores", permissions: { ver: "masters.view", crear: "masters.manage", editar: "masters.manage", anular: "masters.manage", exportar: "masters.view" } },
   { resource: "Solicitudes de compra", permissions: { ver: "purchases.view", crear: "purchases.manage", editar: "purchases.manage", aprobar: "purchases.manage", anular: "purchases.manage", exportar: "purchases.view" } },
   { resource: "Órdenes de compra", permissions: { ver: "purchases.view", crear: "purchases.manage", editar: "purchases.manage", aprobar: "purchases.manage", anular: "purchases.manage", exportar: "purchases.view" } },
   { resource: "Existencias", permissions: { ver: "inventory.view", editar: "inventory.manage", exportar: "inventory.view" } },
   { resource: "Ingresos al Kardex", permissions: { ver: "receiving.manage", crear: "receiving.manage", editar: "receiving.manage", anular: "receiving.manage", exportar: "receiving.manage" } },
   { resource: "Movimientos de Kardex", permissions: { ver: "inventory.view", crear: "inventory.manage", editar: "inventory.manage", anular: "inventory.manage", exportar: "inventory.view" } },
   { resource: "Analítica y reportes", permissions: { ver: "reports.view", exportar: "reports.view" } },
-  { resource: "Mantenimientos", permissions: { ver: "catalogs.manage", crear: "catalogs.manage", editar: "catalogs.manage", anular: "catalogs.manage", exportar: "catalogs.manage" } },
+  { resource: "Maestros", permissions: { ver: "masters.view", crear: "masters.manage", editar: "masters.manage", anular: "masters.manage", exportar: "masters.view" } },
   { resource: "Usuarios y roles", permissions: { ver: "access.manage", crear: "access.manage", editar: "access.manage", anular: "access.manage", exportar: "access.manage" } },
   { resource: "Auditoría", permissions: { ver: "audit.view", exportar: "audit.view" } },
 ];

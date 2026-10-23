@@ -13,7 +13,7 @@ export function CustomerEditor({
   onClose: () => void;
   onSaved: (id: string) => void;
 }) {
-  const { transact } = useErp();
+  const { state, transact } = useErp();
   const [value, setValue] = useState<Party>(
     customer ?? {
       id: `CLI-${crypto.randomUUID()}`,
@@ -32,12 +32,15 @@ export function CustomerEditor({
   );
   const [error, setError] = useState("");
   const busy = useRef(false);
+  const currencies = (state.currencies ?? []).filter((currency) => currency.active || currency.isoCode === value.currency);
+  const paymentMethods = (state.paymentMethods ?? []).filter((method) => method.active || method.name === value.paymentTerms);
   return (
     <Modal
       title={customer ? "Editar cliente" : "Nuevo cliente"}
       subtitle="Información del catálogo compartido de clientes"
       onClose={onClose}
       className="customer-editor"
+      wide
     >
       <form
         onSubmit={(e) => {
@@ -147,6 +150,41 @@ export function CustomerEditor({
             </label>
           ))}
           <label>
+            Nombre comercial <span className="optional">· opcional</span>
+            <input
+              value={value.tradeName ?? ""}
+              onChange={(e) => setValue({ ...value, tradeName: e.target.value })}
+            />
+          </label>
+          <label>
+            Cargo del contacto <span className="optional">· opcional</span>
+            <input
+              value={value.contactRole ?? ""}
+              onChange={(e) => setValue({ ...value, contactRole: e.target.value })}
+            />
+          </label>
+          <label>
+            Distrito <span className="optional">· opcional</span>
+            <input
+              value={value.district ?? ""}
+              onChange={(e) => setValue({ ...value, district: e.target.value })}
+            />
+          </label>
+          <label>
+            Provincia <span className="optional">· opcional</span>
+            <input
+              value={value.province ?? ""}
+              onChange={(e) => setValue({ ...value, province: e.target.value })}
+            />
+          </label>
+          <label>
+            Departamento <span className="optional">· opcional</span>
+            <input
+              value={value.department ?? ""}
+              onChange={(e) => setValue({ ...value, department: e.target.value })}
+            />
+          </label>
+          <label>
             Línea de crédito
             <input
               type="number"
@@ -156,6 +194,55 @@ export function CustomerEditor({
               onChange={(e) =>
                 setValue({ ...value, credit: Number(e.target.value) })
               }
+            />
+          </label>
+          <label>
+            Moneda habitual <span className="optional">· opcional</span>
+            <select
+              value={value.currency ?? ""}
+              onChange={(e) => setValue({ ...value, currency: e.target.value })}
+            >
+              <option value="">No registrada</option>
+              {currencies.map((currency) => <option key={currency.id}>{currency.isoCode}</option>)}
+            </select>
+          </label>
+          <label>
+            Condición de pago <span className="optional">· opcional</span>
+            <select
+              value={value.paymentTerms ?? ""}
+              onChange={(e) => setValue({ ...value, paymentTerms: e.target.value })}
+            >
+              <option value="">No registrada</option>
+              {paymentMethods.map((method) => <option key={method.id}>{method.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Zona comercial <span className="optional">· opcional</span>
+            <select value={value.zoneId ?? ""} onChange={(e) => setValue({ ...value, zoneId: e.target.value || undefined })}>
+              <option value="">Sin asignar</option>
+              {(state.zones ?? []).filter((zone) => zone.active || zone.id === value.zoneId).map((zone) => <option key={zone.id} value={zone.id}>{zone.code} · {zone.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Vendedor responsable <span className="optional">· opcional</span>
+            <select value={value.sellerId ?? ""} onChange={(e) => setValue({ ...value, sellerId: e.target.value || undefined })}>
+              <option value="">Sin asignar</option>
+              {(state.sellers ?? []).filter((seller) => seller.active || seller.id === value.sellerId).map((seller) => <option key={seller.id} value={seller.id}>{seller.code} · {seller.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Lista de precios <span className="optional">· opcional</span>
+            <select value={value.priceListId ?? ""} onChange={(e) => setValue({ ...value, priceListId: e.target.value || undefined })}>
+              <option value="">Sin asignar</option>
+              {(state.priceLists ?? []).filter((list) => list.active || list.id === value.priceListId).map((list) => <option key={list.id} value={list.id}>{list.code} · {list.name}</option>)}
+            </select>
+          </label>
+          <label className="span-two">
+            Observaciones comerciales <span className="optional">· opcional</span>
+            <textarea
+              rows={3}
+              value={value.commercialNotes ?? ""}
+              onChange={(e) => setValue({ ...value, commercialNotes: e.target.value })}
             />
           </label>
           <label>

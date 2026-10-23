@@ -267,6 +267,12 @@
   color: #64748b;
   margin: 5px 0 0;
 }
+.ed-chart-periods {
+  flex: 0 0 auto;
+}
+.ed-chart-periods button {
+  min-width: 72px;
+}
 .ed-main-chart {
   padding: 22px 24px;
 }
@@ -643,6 +649,13 @@
   }
   .ed-main-chart .ed-section-head {
     flex-wrap: wrap;
+  }
+  .ed-chart-periods {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .ed-chart-periods button {
+    flex: 0 0 auto;
   }
   .ed-legend {
     flex-wrap: wrap;
