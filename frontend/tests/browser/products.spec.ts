@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../fixtures/browser-test";
 const key = "enterprisecloud-integrated-erp-v1";
 test("sales can select fractional stock without exceeding available inventory", async ({
   page,

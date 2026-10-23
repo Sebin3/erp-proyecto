@@ -1,9 +1,10 @@
-import {test,expect} from "@playwright/test";
-import {initialState,createDocument,invoice,today} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import {test,expect} from "../fixtures/browser-test";
+import {createDocument,invoice,today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 const key="enterprisecloud-integrated-erp-v1";
 test("pending sales orders can be cancelled, synchronize and remain in history",async({page,context})=>{
- const s=initialState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.quotes=[]; s.movements=[];
+ const s=populatedState(); clearOctober16Operations(s); s.demoDashboardVersion=1; s.documents=[]; s.quotes=[]; s.movements=[];
  const draft={kind:"OV" as const,date:today(),partyId:s.customers[0].id,warehouseId:s.warehouses[0].id,method:"Contado",voucher:"Factura electrónica",lines:[{productId:s.products[0].id,quantity:1,price:20}],discount:0,freight:0,notes:""};
  const pending=createDocument(s,draft), completed=createDocument(s,draft); invoice(s,completed.id,draft.voucher,today());
  await page.goto("/orden-venta"); await page.evaluate(({s,key})=>localStorage.setItem(key,JSON.stringify(s)),{s,key}); await page.reload();

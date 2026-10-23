@@ -1,4 +1,4 @@
-import {test,expect} from "@playwright/test";
+import {test,expect} from "../fixtures/browser-test";
 const key="enterprisecloud-integrated-erp-v1";
 test("category delete can reassign linked products and persists after reload",async({page})=>{
  await page.goto("/mantenimientos"); await page.getByRole("tab",{name:"Categorías",exact:true}).click();

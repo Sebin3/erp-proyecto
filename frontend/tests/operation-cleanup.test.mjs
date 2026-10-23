@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState } from "../src/erp/model.ts";
-import { clearOctober16Operations } from "../src/erp/operation-cleanup.ts";
+import { populatedState } from "./fixtures/populated-state.ts";
+import { clearOctober16Operations } from "./fixtures/operation-cleanup.ts";
 test("date cleanup reverses movements, preserves history and runs once", () => {
- const s = initialState();
+ const s = populatedState();
  const date = "2026-10-16";
  s.documents.forEach(d => d.date = date);
  s.quotes.forEach(d => d.date = date);
@@ -21,7 +21,7 @@ test("date cleanup reverses movements, preserves history and runs once", () => {
  assert.equal(s.documents.length, 2);
 });
 test("removed receipts and invoices reopen their historical sources", () => {
- const s = initialState();
+ const s = populatedState();
  s.documents.forEach(d => {d.date = "2026-10-15"; d.payments.forEach(p => p.date = "2026-10-15");});
  s.quotes.forEach(q => q.date = "2026-10-15"); s.movements.forEach(m => m.date = "2026-10-15");
  const ni = s.documents.find(d => d.kind === "NI"); const oc = s.documents.find(d => d.id === ni.sourceId);

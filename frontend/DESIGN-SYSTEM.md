@@ -42,6 +42,6 @@ La ficha de proveedores utiliza `proveedor-premium.html` como referencia visual.
 
 Mantenimientos utiliza tablas ordenables y paginadas, acciones compactas y formularios por secciones. `supplier-admin.tsx` administra proveedores; el selector de compras conserva tarjetas y búsqueda. Ambos utilizan la misma ficha y fuente de datos. Las tablas mantienen scroll horizontal interno en pantallas pequeñas.
 
-El modelo añade metadatos opcionales y señalización DEMO; el almacenamiento actualiza únicamente ejemplos antiguos reconocibles. Las reglas operativas de inventario, recepción, facturación y cobros se conservan. La eliminación protege sus relaciones mediante desactivación cuando existen vínculos.
+El modelo conserva metadatos opcionales; el almacenamiento limpia una sola vez los registros operativos anteriores y no incorpora ejemplos. Las reglas operativas de inventario, recepción, facturación y cobros se conservan. La eliminación protege sus relaciones mediante desactivación cuando existen vínculos.
 
 El selector compartido de productos utiliza `products.tsx` y estilos aislados en `products.css`: superficies blancas, iconos Lucide, tabla con selección gris, encabezado, paginación y acciones fijas, búsqueda con foco accesible y detalles dentro del mismo diálogo. La búsqueda, los filtros y los productos marcados sobreviven al cambio entre lista y ficha. Los datos locales se consultan sin introducir esperas ni cargas simuladas. La confirmación vuelve a comprobar disponibilidad e identidad antes de modificar las líneas del formulario.

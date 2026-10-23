@@ -7,7 +7,7 @@ import {
   today,
   type State,
   type Draft,
-} from "./model.ts";
+} from "../../src/erp/model.ts";
 
 // Explicit DEMO records only. Existing records and their identifiers are never rewritten.
 export function completeDashboardDemo(state: State): boolean {

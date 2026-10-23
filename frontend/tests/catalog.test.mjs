@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState } from "../src/erp/model.ts";
+import { populatedState } from "./fixtures/populated-state.ts";
 import {
   validRuc,
   rucCheckDigit,
@@ -9,7 +9,7 @@ import {
   deleteCatalogRecord,
   supplierActivity,
 } from "../src/erp/catalog-logic.ts";
-import { upgradeLegacyDemo } from "../src/erp/demo.ts";
+import { upgradeLegacyDemo } from "./fixtures/demo.ts";
 const supplier = (id = "PRO-NEW") => ({
   id,
   name: "Empresa ficticia de prueba",
@@ -32,7 +32,7 @@ test("RUC format, prefix and check digit validate locally, including checksum ed
   }
 });
 test("supplier creation validates duplicate IDs, RUC, email and delivery days before mutation", () => {
-  const state = initialState();
+  const state = populatedState();
   const value = supplier();
   saveSupplier(state, value);
   assert.equal(state.suppliers.at(-1).id, value.id);
@@ -52,7 +52,7 @@ test("supplier creation validates duplicate IDs, RUC, email and delivery days be
   assert.match(supplierErrors(state, supplier("CLI-1")).id, /cliente/);
 });
 test("editing preserves supplier identity, legacy metadata and document links", () => {
-  const state = initialState();
+  const state = populatedState();
   const original = state.suppliers[0];
   original.website = "https://legacy.example";
   original.country = "Dato histórico";
@@ -71,7 +71,7 @@ test("editing preserves supplier identity, legacy metadata and document links", 
   );
 });
 test("linked suppliers, customers and products deactivate; unlinked suppliers delete definitively", () => {
-  const state = initialState();
+  const state = populatedState();
   const documents = JSON.stringify(state.documents);
   const movements = JSON.stringify(state.movements);
   const stock = JSON.stringify(state.stock);
@@ -93,7 +93,7 @@ test("linked suppliers, customers and products deactivate; unlinked suppliers de
   );
 });
 test("supplier activity derives totals, dates and products exclusively from linked purchase orders", () => {
-  const state = initialState();
+  const state = populatedState();
   const activity = supplierActivity(state, "PRO-1");
   const orders = state.documents.filter(
     (d) => d.kind === "OC" && d.partyId === "PRO-1",
@@ -112,7 +112,7 @@ test("supplier activity derives totals, dates and products exclusively from link
   assert.equal(supplierActivity(state, "UNKNOWN").total, 0);
 });
 test("demo data is complete, identifiable and uses unique stable IDs and example domains", () => {
-  const state = initialState();
+  const state = populatedState();
   for (const s of state.suppliers) {
     assert.equal(s.demo, true);
     assert.equal(validRuc(s.taxId), true);
@@ -151,7 +151,7 @@ test("demo data is complete, identifiable and uses unique stable IDs and example
   );
 });
 test("legacy demo migration never overwrites edited or user records, and is idempotent", () => {
-  const state = initialState();
+  const state = populatedState();
   state.suppliers = [
     {
       id: "PRO-1",
@@ -196,7 +196,7 @@ test("legacy demo migration never overwrites edited or user records, and is idem
 
 test("supplier purchase ranking sorts actual orders without changing totals or records", async () => {
  const {supplierPurchaseRanking} = await import("../src/erp/supplier-purchase-chart.ts");
- const s = initialState(), base = s.documents.find(d => d.kind === "OC");
+ const s = populatedState(), base = s.documents.find(d => d.kind === "OC");
  s.documents = [
   {...base, id:"small",partyId:"chart-vendor",date:"2026-10-16",total:50},
   {...base, id:"large",partyId:"chart-vendor",date:"2026-10-16",total:616},
@@ -215,8 +215,8 @@ test("supplier purchase ranking sorts actual orders without changing totals or r
 
 test("category deletion reassigns products, preserves operations, and survives demo expansion", async () => {
  const {deleteCategory} = await import("../src/erp/catalog-logic.ts");
- const {expandCatalogData} = await import("../src/erp/demo.ts");
- const state=initialState(); expandCatalogData(state);
+ const {expandCatalogData} = await import("./fixtures/demo.ts");
+ const state=populatedState(); expandCatalogData(state);
  const operational=JSON.stringify([state.documents,state.quotes,state.stock,state.movements]);
  const product=state.products.find(p=>p.category==="Adhesivos");
  deleteCategory(state,"Adhesivos","PVC");

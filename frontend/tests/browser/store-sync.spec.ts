@@ -1,9 +1,10 @@
-import { test, expect } from "@playwright/test";
-import {initialState, createDocument, today} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import { test, expect } from "../fixtures/browser-test";
+import { createDocument, today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 const key = "enterprisecloud-integrated-erp-v1";
 test("invoice, collection and receipt update other tabs without reloading", async ({page: dashboard, context}) => {
- const s = initialState(); clearOctober16Operations(s);
+ const s = populatedState(); clearOctober16Operations(s);
  s.documents = []; s.quotes = []; s.movements = []; s.audit = []; s.demoDashboardVersion = 1;
  const productId = s.products[0].id, warehouseId = s.warehouses[0].id;
  const before = s.stock[productId][warehouseId];

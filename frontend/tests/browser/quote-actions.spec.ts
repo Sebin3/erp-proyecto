@@ -1,10 +1,11 @@
-import {test, expect} from "@playwright/test";
-import {initialState, saveQuote, today} from "../../src/erp/model";
-import {clearOctober16Operations} from "../../src/erp/operation-cleanup";
+import { populatedState } from "../fixtures/populated-state";
+import {test, expect} from "../fixtures/browser-test";
+import { saveQuote, today} from "../../src/erp/model";
+import {clearOctober16Operations} from "../fixtures/operation-cleanup";
 const key = "enterprisecloud-integrated-erp-v1";
 for (const mobile of [false, true]) test(`quotation send, details and response workflow ${mobile ? "mobile" : "desktop"}`, async ({page}) => {
  if (mobile) await page.setViewportSize({width:390, height:844});
- const s = initialState(); clearOctober16Operations(s); s.demoDashboardVersion = 1;
+ const s = populatedState(); clearOctober16Operations(s); s.demoDashboardVersion = 1;
  s.customers[0].email = "cliente@example.com";
  const quote = saveQuote(s, {kind:"OV", date:today(), partyId:s.customers[0].id, warehouseId:s.warehouses[0].id, method:"Contado", voucher:"Factura electrónica", lines:[{productId:s.products[0].id, quantity:1, price:20}], discount:0, freight:0, notes:"", validity:15});
  await page.goto("/cotizacion"); await page.evaluate(({s,key}) => localStorage.setItem(key, JSON.stringify(s)), {s,key}); await page.reload();
@@ -47,7 +48,7 @@ for (const mobile of [false, true]) test(`quotation send, details and response w
 });
 
 test("confirmed draft deletion removes only the quotation and persists", async ({page}) => {
- const s = initialState(); clearOctober16Operations(s); s.demoDashboardVersion = 1;
+ const s = populatedState(); clearOctober16Operations(s); s.demoDashboardVersion = 1;
  const q = saveQuote(s, {kind:"OV", date:today(), partyId:s.customers[0].id, warehouseId:s.warehouses[0].id, method:"Contado", voucher:"Factura electrónica", lines:[{productId:s.products[0].id, quantity:1, price:20}], discount:0, freight:0, notes:"", validity:15});
  await page.goto("/cotizacion"); await page.evaluate(({s,key}) => localStorage.setItem(key, JSON.stringify(s)), {s,key}); await page.reload();
  const row = page.locator("tbody tr").filter({hasText:q.number});
