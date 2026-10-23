@@ -47,6 +47,7 @@ export function Modal({
   wide = false,
   className = "",
   subtitle,
+  icon,
   hideHeader = false,
   dismissible = true,
 }: {
@@ -56,6 +57,7 @@ export function Modal({
   wide?: boolean;
   className?: string;
   subtitle?: string;
+  icon?: ReactNode;
   hideHeader?: boolean;
   dismissible?: boolean;
 }) {
@@ -157,7 +159,7 @@ export function Modal({
           <div className="modal-head">
             <div className="modal-heading">
               <span className="modal-heading-icon">
-                {/cotización|orden de venta|^Editar COT/i.test(title) ? (
+                {icon ?? (/cotización|orden de venta|^Editar COT/i.test(title) ? (
                   <FileText size={20} strokeWidth={1.65} />
                 ) : /producto/i.test(title) ? (
                   <Package size={20} strokeWidth={1.65} />
@@ -176,7 +178,7 @@ export function Modal({
                     }
                     size={20}
                   />
-                )}
+                ))}
               </span>
               <div>
                 <span className="section-eyebrow">ENTERPRISECLOUD</span>

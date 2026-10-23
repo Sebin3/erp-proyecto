@@ -11,6 +11,7 @@ import {
   Upload,
   CircleAlert,
   Check,
+  Truck,
 } from "lucide-react";
 import { useErp } from "./store";
 import { today, type Party } from "./model";
@@ -367,10 +368,12 @@ export function SupplierTable({
   onDetails,
   onEdit,
   onDelete,
+  onImport,
 }: {
   onDetails: (id: string) => void;
   onEdit: (supplier: Party) => void;
   onDelete: (id: string) => void;
+  onImport?: () => void;
 }) {
   const { state } = useErp();
   const [category, setCategory] = useState("");
@@ -393,6 +396,11 @@ export function SupplierTable({
   return (
     <Records
       sortable
+      className="maintenance-records"
+      emptyTitle={state.suppliers.length ? undefined : "Aún no hay proveedores"}
+      emptyIcon={<Truck size={23} />}
+      empty={state.suppliers.length ? "Prueba con otros filtros o términos de búsqueda." : "Crea el primer proveedor o importa un CSV para comenzar a registrar compras."}
+      emptyAction={!state.suppliers.length && onImport ? <button type="button" className="secondary-btn" onClick={onImport}><Upload size={15} /> Importar CSV</button> : undefined}
       headers={headers}
       searchText="Buscar por razón social, RUC o código…"
       filters={
@@ -521,14 +529,17 @@ export function SupplierTable({
   );
 }
 export function SupplierAdministration({ onImport }: { onImport: () => void }) {
+  const { state } = useErp();
   const [editing, setEditing] = useState<Party | null | undefined>(undefined);
   const [detail, setDetail] = useState("");
   const [deleting, setDeleting] = useState("");
   return (
     <>
-      <div className="hd">
-        <div>
+      <div className="hd maintenance-heading">
+        <div className="maintenance-heading-copy">
+          <span className="maintenance-eyebrow">DIRECTORIO · PROVEEDORES</span>
           <h2>Proveedores</h2>
+          <p>{state.suppliers.length} {state.suppliers.length === 1 ? "registro" : "registros"} · Contactos y condiciones de compra</p>
         </div>
         <div className="csv-catalog-actions">
         <button type="button" className="secondary-btn" onClick={onImport}>
@@ -545,6 +556,7 @@ export function SupplierAdministration({ onImport }: { onImport: () => void }) {
         onDetails={setDetail}
         onEdit={setEditing}
         onDelete={setDeleting}
+        onImport={onImport}
       />
       {editing !== undefined && (
         <SupplierForm
