@@ -20,7 +20,7 @@ import {
   type ChartPeriod,
 } from "./dashboard-data";
 import { money, dateLabel, today } from "./model";
-import { ExportMenu, Records, Tag, DocDetail } from "./ui";
+import { Records, Tag, DocDetail } from "./ui";
 import { ProductDetailsTrigger } from "./products";
 
 function OrderActions({
@@ -378,7 +378,6 @@ export function Dashboard() {
           <h1>{greeting}, Administrador</h1>
           <p>Resumen general de las operaciones de EnterpriseCloud</p>
         </div>
-        <ExportMenu data={dashboardExportData} />
       </header>
       <section className="ed-kpis" aria-label="Indicadores principales">
         {kpis.map((k) => (

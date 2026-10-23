@@ -1,0 +1,11 @@
+currencyId,isoCode,name,symbol,currencyActive,date,buyRate,sellRate,rateActive
+PEN,PEN,Sol peruano,S/,true,2026-01-15,1,1,true
+USD,USD,Dólar estadounidense,$,true,2026-01-15,3.7200,3.7600,true
+EUR,EUR,Euro,€,true,2026-01-15,4.0200,4.1200,true
+CLP,CLP,Peso chileno,$,true,2026-01-15,0.0038,0.0042,true
+COP,COP,Peso colombiano,$,true,2026-01-15,0.0008,0.0010,true
+MXN,MXN,Peso mexicano,$,true,2026-01-15,0.1850,0.2050,true
+BRL,BRL,Real brasileño,R$,true,2026-01-15,0.6800,0.7600,true
+ARS,ARS,Peso argentino,$,true,2026-01-15,0.0028,0.0035,true
+BOB,BOB,Boliviano,Bs.,true,2026-01-15,0.5200,0.5900,true
+CAD,CAD,Dólar canadiense,C$,true,2026-01-15,2.6500,2.8200,true

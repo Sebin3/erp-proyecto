@@ -1,0 +1,11 @@
+id,name,category,unit,cost,price,minimum,description,sku,barcode,active,registeredAt
+PRD-IMPORT-001,Bolsa industrial 20 kg,Productos terminados,UND,4.5,7.9,20,Bolsa de polietileno para uso industrial,BOL-20,7750000000012,true,2026-01-15
+PRD-IMPORT-002,Bolsa industrial 40 kg,Productos terminados,UND,6.8,11.5,18,Bolsa reforzada para carga industrial,BOL-40,7750000000013,true,2026-01-15
+PRD-IMPORT-003,Film stretch 50 cm,Embalaje,ROL,18.2,26.9,12,Film stretch para paletizado,FILM-50,7750000000014,true,2026-01-15
+PRD-IMPORT-004,Saco laminado 25 kg,Envases,UND,2.9,5.4,30,Saco laminado para productos secos,SAC-25,7750000000015,true,2026-01-15
+PRD-IMPORT-005,Envase plástico 1 L,Envases,UND,1.2,2.4,50,Envase plástico con tapa rosca,ENV-1L,7750000000016,true,2026-01-15
+PRD-IMPORT-006,Tapa rosca 28 mm,Componentes,UND,0.18,0.45,100,Tapa rosca para envases de un litro,TAP-28,7750000000017,true,2026-01-15
+PRD-IMPORT-007,Caja corrugada mediana,Embalaje,CJA,3.4,6.2,25,Caja corrugada para despacho,COR-M,7750000000018,true,2026-01-15
+PRD-IMPORT-008,Cinta de embalaje 48 mm,Embalaje,ROL,2.1,4.3,20,Cinta adhesiva transparente de embalaje,CIN-48,7750000000019,true,2026-01-15
+PRD-IMPORT-009,Guante nitrilo industrial,Seguridad,PAR,1.8,3.5,40,Guante de nitrilo para operación industrial,GUA-NIT,7750000000020,true,2026-01-15
+PRD-IMPORT-010,Mascarilla respiratoria,Seguridad,UND,2.6,5.8,35,Mascarilla para protección respiratoria,MAS-RES,7750000000021,true,2026-01-15

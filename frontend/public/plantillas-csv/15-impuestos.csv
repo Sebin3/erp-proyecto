@@ -1,0 +1,11 @@
+id,code,name,percentage,type,validFrom,active
+IGV18,IGV18,IGV general,18,IGV,2026-01-01,true
+IGV10,IGV10,IGV reducido,10,IGV,2026-01-01,true
+ISC10,ISC10,ISC combustibles,10,ISC,2026-01-01,true
+ISC20,ISC20,ISC bebidas,20,ISC,2026-01-01,true
+EXO00,EXO00,Operación exonerada,0,Exonerado,2026-01-01,true
+INA00,INA00,Operación inafecta,0,Otro,2026-01-01,true
+PER02,PER02,Percepción 2,2,Otro,2026-01-01,true
+RET03,RET03,Retención 3,3,Otro,2026-01-01,true
+DET03,DET03,Detracción 3,3,Otro,2026-01-01,true
+ISC05,ISC05,ISC especial,5,ISC,2026-01-01,true

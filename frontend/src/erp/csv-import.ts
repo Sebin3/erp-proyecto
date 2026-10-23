@@ -16,7 +16,20 @@ const commonParty: Field[] = [
   { key: "active", label: "Estado" },
 ];
 export const importFields: Record<ImportKind, Field[]> = {
-  customers: commonParty,
+  customers: [
+    ...commonParty,
+    { key: "tradeName", label: "Nombre comercial" },
+    { key: "contactRole", label: "Cargo" },
+    { key: "district", label: "Distrito" },
+    { key: "province", label: "Provincia" },
+    { key: "department", label: "Departamento" },
+    { key: "paymentTerms", label: "Condición de pago" },
+    { key: "currency", label: "Moneda" },
+    { key: "zoneId", label: "Zona" },
+    { key: "sellerId", label: "Vendedor" },
+    { key: "priceListId", label: "Lista de precios" },
+    { key: "commercialNotes", label: "Observaciones comerciales" },
+  ],
   suppliers: [
     ...commonParty,
     { key: "tradeName", label: "Nombre comercial" },

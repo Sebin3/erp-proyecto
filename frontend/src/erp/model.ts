@@ -22,6 +22,7 @@ export type Company = {
   taxId: string;
   legalName: string;
   tradeName?: string;
+  logoUrl?: string;
   fiscalAddress: string;
   baseCurrency: string;
   taxRegime?: string;
@@ -446,6 +447,7 @@ export type State = {
   businessCleanupVersion?: 1;
   clearedOperationDates?: string[];
   demoDashboardVersion?: number;
+  integratedDemoVersion?: 1;
   payables?: {
     id: string;
     documentId: string;

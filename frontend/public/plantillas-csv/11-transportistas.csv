@@ -1,0 +1,11 @@
+id,document,legalName,license,vehicles,drivers,contact,phone,email,active
+TRA-001,20607777771,Transportes del Pacífico S.A.C.,A12345678,Camión T-01,Juan Pérez,Ana Flores,999555666,operaciones@transportespacifico.pe,true
+TRA-002,20607777772,Logística Andina S.A.C.,A22345678,Camión A-02,Pedro Ríos,Claudia Vega,999555667,operaciones@logisticaandina.pe,true
+TRA-003,20607777773,Carga Norte S.A.C.,A32345678,Furgón N-03,Luis Paredes,Marco Salas,999555668,operaciones@carganorte.pe,true
+TRA-004,20607777774,Transportes Centro S.A.C.,A42345678,Camión C-04,Julio León,Patricia Ruiz,999555669,operaciones@transportescentro.pe,true
+TRA-005,20607777775,Distribución Sur S.A.C.,A52345678,Camión S-05,Raúl Campos,Sofía Cruz,999555670,operaciones@distribucionsur.pe,true
+TRA-006,20607777776,Envíos Express S.A.C.,A62345678,Furgón E-06,Diego Flores,Andrea Soto,999555671,operaciones@enviosexpress.pe,true
+TRA-007,20607777777,Rutas del Pacífico S.A.C.,A72345678,Camión P-07,Enrique Núñez,María Ponce,999555672,operaciones@rutaspacifico.pe,true
+TRA-008,20607777778,Carga Segura S.A.C.,A82345678,Camión S-08,Oscar Vargas,Teresa Medina,999555673,operaciones@cargasegura.pe,true
+TRA-009,20607777779,Transporte Regional S.A.C.,A92345678,Furgón R-09,Renato Soto,Beatriz Campos,999555674,operaciones@transporteregional.pe,true
+TRA-010,20607777780,Operaciones Logísticas S.A.C.,A02345678,Camión O-10,Carlos Díaz,Lucía Rojas,999555675,operaciones@operacioneslogisticas.pe,true

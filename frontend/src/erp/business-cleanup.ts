@@ -85,6 +85,7 @@ export function cleanBusinessData(state: State): boolean {
   ].includes(`${user.id}|${user.email}|${user.name}`));
   delete state.clearedOperationDates;
   delete state.demoDashboardVersion;
+  delete state.integratedDemoVersion;
   state.businessCleanupVersion = 1;
   return true;
 }

@@ -1,0 +1,11 @@
+id,code,name,route,sellerId,active
+ZON-001,ZON-001,Lima Norte,Los Olivos · Independencia · Comas,VEN-001,true
+ZON-002,ZON-002,Lima Centro,Cercado · Breña · San Miguel,VEN-002,true
+ZON-003,ZON-003,Chiclayo,Chiclayo · José Leonardo Ortiz,VEN-003,true
+ZON-004,ZON-004,Callao,Callao · Bellavista · Ventanilla,VEN-004,true
+ZON-005,ZON-005,Cusco,Cusco · Wanchaq · San Sebastián,VEN-005,true
+ZON-006,ZON-006,Arequipa,Arequipa · Cerro Colorado · Cayma,VEN-006,true
+ZON-007,ZON-007,Lima Este,Santa Anita · Ate · La Molina,VEN-007,true
+ZON-008,ZON-008,Lima Oeste,Magdalena · San Miguel · Pueblo Libre,VEN-008,true
+ZON-009,ZON-009,Piura,Piura · Castilla · Veintiséis de Octubre,VEN-009,true
+ZON-010,ZON-010,Arequipa Sur,Socabaya · Paucarpata · José Luis Bustamante,VEN-010,true

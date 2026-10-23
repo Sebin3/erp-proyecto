@@ -1,0 +1,11 @@
+id,code,name,abbreviation,precision,active
+UND,UND,Unidad,UND,0,true
+CJA,CJA,Caja,CJA,0,true
+ROL,ROL,Rollo,ROL,2,true
+PAR,PAR,Par,PAR,0,true
+KG,KG,Kilogramo,KG,3,true
+M,M,Metro,M,2,true
+LT,LT,Litro,LT,3,true
+PAQ,PAQ,Paquete,PAQ,0,true
+PZA,PZA,Pieza,PZA,0,true
+TAR,TAR,Tarima,TAR,0,true

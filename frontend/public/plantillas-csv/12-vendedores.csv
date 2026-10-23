@@ -1,0 +1,11 @@
+id,code,name,commissionPct,monthlyTarget,zoneId,userId,active
+VEN-001,VEN-001,María Castillo,3.5,25000,ZON-001,,true
+VEN-002,VEN-002,Pedro Castillo,3,22000,ZON-002,,true
+VEN-003,VEN-003,Lucía Mendoza,2.8,20000,ZON-003,,true
+VEN-004,VEN-004,Diego Herrera,3.2,23000,ZON-004,,true
+VEN-005,VEN-005,Sofía Navarro,2.5,18000,ZON-005,,true
+VEN-006,VEN-006,Ricardo Salazar,3.5,26000,ZON-006,,true
+VEN-007,VEN-007,Carla Torres,3,21000,ZON-007,,true
+VEN-008,VEN-008,Enrique Paredes,2.7,19000,ZON-008,,true
+VEN-009,VEN-009,Andrea Flores,3.1,24000,ZON-009,,true
+VEN-010,VEN-010,José Castillo,2.9,20500,ZON-010,,true

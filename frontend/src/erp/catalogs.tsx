@@ -1,11 +1,12 @@
 import { SupplierAdministration, CatalogDeleteDialog } from "./supplier-admin";
 import { CustomerEditor } from "./customers";
 import { deleteCategory, type CatalogKind } from "./catalog-logic";
-import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload, UsersRound, Package, Warehouse as WarehouseIcon, Building2, Tags, Ruler, ArrowRightLeft, MapPin } from "lucide-react";
+import { Eye, Pencil, Trash2, FolderOpen, Search, Plus, Upload, UsersRound, Package, Warehouse as WarehouseIcon, Building2, Tags, Ruler, ArrowRightLeft, MapPin, ImagePlus } from "lucide-react";
 import { ProductDetails } from "./products";
 import { CsvImportModal } from "./csv-import-modal";
+import { MasterCsvImportModal } from "./master-csv-import-modal";
 import type { ImportKind } from "./csv-import";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { useErp } from "./store";
 import {
@@ -13,6 +14,7 @@ import {
   today,
   type Party,
   type Product,
+  type Company,
   type Warehouse,
   type Branch,
   type Brand,
@@ -28,7 +30,7 @@ export type Catalog =
   | "Proveedores"
   | "Almacenes"
   | "Categorías"
-  | "Empresa"
+  | "Empresas"
   | "Sucursales"
   | "Marcas"
   | "Unidades"
@@ -42,8 +44,9 @@ export type Catalog =
   | "Listas de precios";
 export function Catalogs({ initialTab }: { initialTab?: Catalog } = {}) {
   const { state, transact } = useErp();
-  const [tab, setTab] = useState<Catalog>(initialTab ?? "Empresa");
+  const [tab, setTab] = useState<Catalog>(initialTab ?? "Empresas");
   const [importKind, setImportKind] = useState<ImportKind | null>(null);
+  const [masterImportOpen, setMasterImportOpen] = useState(false);
   const [editor, setEditor] = useState<Record<string, unknown> | null>(null);
   const [viewing, setViewing] = useState<Record<string, unknown> | null>(null);
   const [deleting, setDeleting] = useState<{
@@ -54,7 +57,7 @@ export function Catalogs({ initialTab }: { initialTab?: Catalog } = {}) {
   const [error, setError] = useState("");
   const [active, setActive] = useState("Todos");
   const groups = [
-    { id: "structure", label: "Empresa y estructura", description: "La organización que sostiene la operación.", tabs: ["Empresa", "Sucursales", "Almacenes"] as Catalog[] },
+    { id: "structure", label: "Empresas y estructura", description: "Las organizaciones y sedes que sostienen la operación.", tabs: ["Empresas", "Sucursales", "Almacenes"] as Catalog[] },
     { id: "products", label: "Productos", description: "Catálogo, clasificación y unidades.", tabs: ["Productos", "Categorías", "Marcas", "Unidades", "Conversiones"] as Catalog[] },
     { id: "parties", label: "Terceros", description: "Clientes, proveedores y transporte compartidos.", tabs: ["Clientes", "Proveedores", "Transportistas"] as Catalog[] },
     { id: "commercial", label: "Comercial", description: "Responsables y segmentación de ventas.", tabs: ["Vendedores", "Zonas"] as Catalog[] },
@@ -381,6 +384,9 @@ export function Catalogs({ initialTab }: { initialTab?: Catalog } = {}) {
             Fuente única de datos que alimenta compras, ventas, inventario y reportes.
           </p>
         </div>
+        <div className="masters-page-actions">
+          <button type="button" className="secondary-btn" onClick={() => setMasterImportOpen(true)}><Upload size={16} /> Importar catálogo CSV</button>
+        </div>
       </div>
       <div className="masters-groups" aria-label="Grupos del módulo Maestros">
         {groups.map((group, index) => (
@@ -613,8 +619,9 @@ export function Catalogs({ initialTab }: { initialTab?: Catalog } = {}) {
       {tab === "Impuestos" && <Taxes />}
       {tab === "Formas de pago" && <PaymentMethods />}
       {tab === "Listas de precios" && <PriceLists />}
-      {tab === "Empresa" && <Company />}
+      {tab === "Empresas" && <CompaniesTable />}
       {importKind && <CsvImportModal kind={importKind} onClose={() => setImportKind(null)} />}
+      {masterImportOpen && <MasterCsvImportModal onClose={() => setMasterImportOpen(false)} />}
       {viewing && (
         <Modal title={String(viewing.name)} onClose={() => setViewing(null)}>
           {product ? (
@@ -936,9 +943,161 @@ function Categories() {
     </section>
   );
 }
+function CompaniesTable() {
+  const { state, transact } = useErp();
+  const companies = state.companies ?? [];
+  const [editor, setEditor] = useState<Partial<Company> | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const currencies = state.currencies ?? [];
+  const availableCurrencies = currencies.filter((item) => item.active || item.isoCode === editor?.baseCurrency);
+  const isEditing = Boolean(editingId);
+  const editorBranchCount = editor ? state.branches?.filter((branch) => branch.companyId === (editingId ?? editor.id)).length ?? 0 : 0;
+
+  const nextCompanyId = () => {
+    let number = companies.length + 1;
+    while (companies.some((item) => item.id === `EMP-${String(number).padStart(3, "0")}`)) number += 1;
+    return `EMP-${String(number).padStart(3, "0")}`;
+  };
+
+  const startNewCompany = () => {
+    setError("");
+    setEditingId(null);
+    setEditor({ id: nextCompanyId(), baseCurrency: state.settings.currency, active: true });
+  };
+
+  const saveCompany = () => {
+    if (!editor) return;
+    try {
+      transact((s) => {
+        const id = String(editor.id ?? "").trim();
+        const legalName = String(editor.legalName ?? "").trim();
+        const taxId = String(editor.taxId ?? "").trim();
+        const baseCurrency = String(editor.baseCurrency ?? state.settings.currency);
+        if (!id) throw Error("El código interno es obligatorio.");
+        if (!legalName) throw Error("La razón social es obligatoria.");
+        if (taxId && !/^\d{11}$/.test(taxId)) throw Error("El RUC debe contener 11 dígitos.");
+        if (editor.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(editor.email).trim())) throw Error("Ingresa un correo empresarial válido.");
+        s.companies ??= [];
+        if (s.companies.some((item) => item.id !== editingId && item.id === id)) throw Error("Ya existe una empresa con ese código.");
+        if (s.companies.some((item) => item.id !== id && item.taxId && taxId && item.taxId === taxId)) throw Error("Ya existe una empresa con ese RUC.");
+        if (s.companies.some((item) => item.id !== id && item.legalName.toLocaleLowerCase("es") === legalName.toLocaleLowerCase("es"))) throw Error("Ya existe una empresa con esa razón social.");
+        const index = s.companies.findIndex((item) => item.id === (editingId ?? id));
+        const current: Company = {
+          id,
+          taxId,
+          legalName,
+          tradeName: String(editor.tradeName ?? "").trim() || undefined,
+          logoUrl: String(editor.logoUrl ?? "").trim() || undefined,
+          fiscalAddress: String(editor.fiscalAddress ?? "").trim(),
+          taxRegime: String(editor.taxRegime ?? "").trim() || undefined,
+          phone: String(editor.phone ?? "").trim() || undefined,
+          email: String(editor.email ?? "").trim() || undefined,
+          website: String(editor.website ?? "").trim() || undefined,
+          baseCurrency,
+          active: editor.active !== false,
+        };
+        if (index >= 0) s.companies[index] = current;
+        else s.companies.push(current);
+        if (index === 0 || s.companies.length === 1) {
+          s.settings.company = legalName;
+          s.settings.currency = baseCurrency;
+        }
+        s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: index >= 0 ? "Actualizar empresa" : "Crear empresa", record: `${id}: ${legalName}` });
+      });
+      setEditor(null);
+      setEditingId(null);
+      setError("");
+      toast.success(isEditing ? "Empresa actualizada correctamente." : "Empresa creada correctamente.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo guardar la empresa.";
+      setError(message);
+      toast.error(message);
+    }
+  };
+
+  return (
+    <section className="masters-section">
+      <MasterSectionHeader module="1.1" title="Empresas" description="Administra las organizaciones que comparten la operación del ERP." count={companies.length} icon={<Building2 size={20} />} onAdd={startNewCompany} />
+      <div className="card masters-table-card company-table-card">
+        <div className="company-table-caption">
+          <div>
+            <span className="company-form-eyebrow">CATÁLOGO COMPARTIDO</span>
+            <h3>Empresas registradas</h3>
+            <p>Cada empresa puede tener sus propias sedes, moneda y parámetros operativos.</p>
+          </div>
+          <span className="company-directory-count">{companies.length} {companies.length === 1 ? "registro" : "registros"}</span>
+        </div>
+        {companies.length ? (
+          <table className="masters-table company-table">
+            <thead><tr><th>Empresa</th><th>RUC</th><th>Moneda base</th><th>Sucursales</th><th>Estado</th><th aria-label="Acciones" /></tr></thead>
+            <tbody>
+              {companies.map((company) => {
+                const branchCount = state.branches?.filter((branch) => branch.companyId === company.id).length ?? 0;
+                return <tr key={company.id}>
+                  <td><div className="company-table-name"><span className="company-table-icon"><Building2 size={16} /></span><span><strong>{company.tradeName || company.legalName}</strong><small>{company.id} · {company.legalName}</small></span></div></td>
+                  <td>{company.taxId || "Pendiente"}</td>
+                  <td><code>{company.baseCurrency}</code></td>
+                  <td>{branchCount}</td>
+                  <td><Tag value={company.active ? "Activo" : "Inactivo"} /></td>
+                  <td><button className="icon-btn" type="button" aria-label={`Editar ${company.legalName}`} onClick={() => { setError(""); setEditingId(company.id); setEditor({ ...company }); }}><Pencil size={16} /></button></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div className="masters-empty"><Building2 size={28} /><h3>Aún no hay empresas</h3><p>Registra la primera empresa para habilitar la operación del ERP.</p></div>
+        )}
+      </div>
+      {editor && <Modal wide className="company-editor-modal" title={isEditing ? "Editar empresa" : "Nueva empresa"} subtitle="Información fiscal y operativa que alimenta documentos, reportes y comprobantes." icon={<Building2 size={20} />} onClose={() => { setEditor(null); setEditingId(null); setError(""); }}>
+        <form onSubmit={(event) => { event.preventDefault(); saveCompany(); }}>
+          <div className="company-editor-shell">
+            <aside className="company-preview-card">
+              <div className="company-preview-top">
+                <label className="company-logo-trigger" title={editor.logoUrl ? "Cambiar logo" : "Agregar logo"} aria-label={editor.logoUrl ? "Cambiar logo de la empresa" : "Agregar logo de la empresa"}>
+                  {editor.logoUrl ? <img src={editor.logoUrl} alt="Logo de la empresa" /> : <Building2 size={22} />}
+                  <span className="company-logo-trigger-badge"><ImagePlus size={12} /></span>
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (!file.type.startsWith("image/")) { setError("Selecciona un archivo de imagen válido."); event.currentTarget.value = ""; return; } if (file.size > 2 * 1024 * 1024) { setError("El logo no debe superar los 2 MB."); event.currentTarget.value = ""; return; } const reader = new FileReader(); reader.onload = () => setEditor((current) => current ? { ...current, logoUrl: String(reader.result ?? "") } : current); reader.readAsDataURL(file); }} />
+                </label>
+                <Tag value={editor.active === false ? "Inactiva" : "Activa"} />
+              </div>
+              <span className="company-identity-label">{isEditing && editingId === companies[0]?.id ? "REGISTRO PRINCIPAL" : isEditing ? "EMPRESA SELECCIONADA" : "NUEVA EMPRESA"}</span>
+              <h3>{String(editor.tradeName || editor.legalName || "Nombre de la empresa")}</h3>
+              <p>{editor.tradeName ? String(editor.legalName || "Identidad fiscal de la empresa.") : "Identidad fiscal y operativa del catálogo de empresas."}</p>
+              <dl><div><dt>Código interno</dt><dd>{editor.id}</dd></div><div><dt>RUC</dt><dd>{editor.taxId || "Pendiente"}</dd></div><div><dt>Moneda base</dt><dd>{editor.baseCurrency || state.settings.currency}</dd></div><div><dt>Sucursales</dt><dd>{editorBranchCount}</dd></div></dl>
+              {editor.logoUrl && <button type="button" className="company-logo-remove" onClick={() => setEditor({ ...editor, logoUrl: undefined })}><Trash2 size={14} /> Quitar logo</button>}
+              <div className="company-identity-note"><Icon name="shield" size={14} /><span>Los cambios quedan registrados en auditoría.</span></div>
+            </aside>
+            <div className="card company-editor-form-card">
+              <div className="company-form-intro"><div><span className="company-form-eyebrow">DATOS CENTRALES</span><h3>Información fiscal y operativa</h3><p>Completa los datos que se utilizarán en documentos, reportes y comprobantes.</p></div><span className="company-form-code">{editor.id}</span></div>
+              <div className="form-grid">
+                <label>Código interno<input required readOnly={isEditing} value={String(editor.id ?? "")} onChange={(event) => setEditor({ ...editor, id: event.target.value.toUpperCase() })} placeholder="EMP-001" /></label>
+                <label>Estado<select value={editor.active === false ? "Inactivo" : "Activo"} onChange={(event) => setEditor({ ...editor, active: event.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></label>
+                <label className="span-two">Razón social<input required value={String(editor.legalName ?? "")} onChange={(event) => setEditor({ ...editor, legalName: event.target.value })} placeholder="Razón social registrada" /></label>
+                <label>Nombre comercial <span className="optional">· opcional</span><input value={String(editor.tradeName ?? "")} onChange={(event) => setEditor({ ...editor, tradeName: event.target.value })} placeholder="Nombre visible en documentos" /></label>
+                <label>RUC <span className="optional">· 11 dígitos</span><input inputMode="numeric" maxLength={11} value={String(editor.taxId ?? "")} onChange={(event) => setEditor({ ...editor, taxId: event.target.value.replace(/\D/g, "") })} placeholder="20123456789" /></label>
+                <label>Régimen tributario<select value={String(editor.taxRegime ?? "")} onChange={(event) => setEditor({ ...editor, taxRegime: event.target.value })}><option value="">No especificado</option><option>Régimen General</option><option>Régimen MYPE Tributario</option><option>Régimen Especial</option></select></label>
+                <label>Moneda base<select value={String(editor.baseCurrency ?? state.settings.currency)} onChange={(event) => setEditor({ ...editor, baseCurrency: event.target.value })}>{availableCurrencies.map((currency) => <option key={currency.id} value={currency.isoCode}>{currency.isoCode} · {currency.name}</option>)}</select></label>
+                <label className="span-two">Domicilio fiscal<input value={String(editor.fiscalAddress ?? "")} onChange={(event) => setEditor({ ...editor, fiscalAddress: event.target.value })} placeholder="Dirección fiscal completa" /></label>
+                <label>Teléfono empresarial<input type="tel" value={String(editor.phone ?? "")} onChange={(event) => setEditor({ ...editor, phone: event.target.value })} placeholder="01 000 0000" /></label>
+                <label>Correo empresarial<input type="email" value={String(editor.email ?? "")} onChange={(event) => setEditor({ ...editor, email: event.target.value })} placeholder="contacto@empresa.com" /></label>
+                <label>Sitio web <span className="optional">· opcional</span><input type="url" value={String(editor.website ?? "")} onChange={(event) => setEditor({ ...editor, website: event.target.value })} placeholder="https://empresa.com" /></label>
+              </div>
+              {error && <p className="error" role="alert">{error}</p>}
+              <div className="company-form-footer"><p>La moneda base se utilizará para precios, compras, ventas y reportes. Los cambios quedan registrados en auditoría.</p><div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => { setEditor(null); setEditingId(null); setError(""); }}>Cancelar</button><button className="btn">Guardar empresa</button></div></div>
+            </div>
+          </div>
+        </form>
+      </Modal>}
+    </section>
+  );
+}
+
 function Company() {
   const { state, transact } = useErp();
-  const companyMaster = state.companies?.[0];
+  const companies = state.companies ?? [];
+  const [selectedId, setSelectedId] = useState(companies[0]?.id ?? "EMP-001");
+  const companyMaster = companies.find((item) => item.id === selectedId);
   const [company, setCompany] = useState(companyMaster?.legalName ?? state.settings.company);
   const [tradeName, setTradeName] = useState(companyMaster?.tradeName ?? "");
   const [taxId, setTaxId] = useState(companyMaster?.taxId ?? "");
@@ -952,18 +1111,43 @@ function Company() {
   const [error, setError] = useState("");
   const availableCurrencies = (state.currencies ?? []).filter((item) => item.active || item.isoCode === currency);
   const branchCount = state.branches?.filter((branch) => branch.companyId === companyMaster?.id).length ?? 0;
+  useEffect(() => {
+    if (!companyMaster) return;
+    setCompany(companyMaster.legalName);
+    setTradeName(companyMaster.tradeName ?? "");
+    setTaxId(companyMaster.taxId ?? "");
+    setAddress(companyMaster.fiscalAddress ?? "");
+    setTaxRegime(companyMaster.taxRegime ?? "");
+    setPhone(companyMaster.phone ?? "");
+    setEmail(companyMaster.email ?? "");
+    setWebsite(companyMaster.website ?? "");
+    setCurrency(companyMaster.baseCurrency);
+    setActive(companyMaster.active !== false);
+    setError("");
+  }, [companyMaster?.id]);
+  const startNewCompany = () => {
+    const nextId = `EMP-${String(companies.length + 1).padStart(3, "0")}`;
+    setSelectedId(nextId);
+    setCompany(""); setTradeName(""); setTaxId(""); setAddress(""); setTaxRegime(""); setPhone(""); setEmail(""); setWebsite(""); setCurrency(state.settings.currency); setActive(true); setError("");
+  };
   return (
     <section className="masters-section">
-      <MasterSectionHeader module="1.1" title="Empresa" description="Identidad fiscal y parámetros base de la organización." count={state.companies?.length ?? 1} icon={<Building2 size={20} />} />
+      <MasterSectionHeader module="1.1" title="Empresas" description="Administra las organizaciones que comparten la operación del ERP." count={companies.length} icon={<Building2 size={20} />} onAdd={startNewCompany} />
+      <div className="card company-directory-card">
+        <div className="company-directory-head"><div><span className="company-form-eyebrow">CATÁLOGO COMPARTIDO</span><h3>Empresas registradas</h3><p>Selecciona una empresa para consultar o actualizar su información fiscal.</p></div><span className="company-directory-count">{companies.length} registros</span></div>
+        <div className="company-directory-list">
+          {companies.map((item) => <button type="button" key={item.id} className={`company-directory-item ${item.id === selectedId ? "is-selected" : ""}`} onClick={() => setSelectedId(item.id)}><span className="company-directory-item-icon"><Building2 size={17} /></span><span><strong>{item.tradeName || item.legalName}</strong><small>{item.id} · {item.legalName}</small></span><Tag value={item.active ? "Activo" : "Inactivo"} /></button>)}
+        </div>
+      </div>
       <div className="company-master-layout">
       <aside className="company-identity">
         <div className="company-identity-top">
           <span className="company-identity-mark"><Building2 size={21} /></span>
           <span className="company-record-status">{active ? "Activa" : "Inactiva"}</span>
         </div>
-        <span className="company-identity-label">REGISTRO PRINCIPAL</span>
+        <span className="company-identity-label">{companyMaster?.id === companies[0]?.id ? "REGISTRO PRINCIPAL" : "EMPRESA SELECCIONADA"}</span>
         <h3>{tradeName || company || state.settings.company}</h3>
-        <p>{tradeName ? company : "Empresa administradora del espacio de trabajo."}</p>
+        <p>{tradeName ? company : "Identidad fiscal y operativa del catálogo de empresas."}</p>
         <dl>
           <div><dt>Código interno</dt><dd>{companyMaster?.id ?? "EMP-001"}</dd></div>
           <div><dt>RUC</dt><dd>{taxId || "Pendiente"}</dd></div>
@@ -982,7 +1166,7 @@ function Company() {
           <h3>Información fiscal y operativa</h3>
           <p>Completa los datos que se utilizarán en documentos, reportes y comprobantes.</p>
         </div>
-        <span className="company-form-code">{companyMaster?.id ?? "EMP-001"}</span>
+          <span className="company-form-code">{companyMaster?.id ?? selectedId}</span>
       </div>
       <form
         className="company-form"
@@ -996,24 +1180,18 @@ function Company() {
               if (nextTaxId && !/^\d{11}$/.test(nextTaxId)) throw Error("El RUC debe contener 11 dígitos.");
               if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw Error("Ingresa un correo empresarial válido.");
               s.companies ??= [];
-              const current = s.companies[0] ?? { id: "EMP-001", taxId: "", legalName: nextCompany, fiscalAddress: "", baseCurrency: currency, active: true };
-              current.legalName = nextCompany;
-              current.tradeName = tradeName.trim() || undefined;
-              current.taxId = nextTaxId;
-              current.fiscalAddress = address.trim();
-              current.taxRegime = taxRegime || undefined;
-              current.phone = phone.trim() || undefined;
-              current.email = email.trim() || undefined;
-              current.website = website.trim() || undefined;
-              current.baseCurrency = currency;
-              current.active = active;
-              s.settings.company = nextCompany;
-              s.settings.currency = currency;
-              s.companies[0] = current;
-              s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: "Actualizar datos de empresa", record: nextCompany });
+              s.companies ??= [];
+              const targetId = selectedId || "EMP-001";
+              if (s.companies.some((item) => item.id !== targetId && item.taxId && nextTaxId && item.taxId === nextTaxId)) throw Error("Ya existe una empresa con ese RUC.");
+              if (s.companies.some((item) => item.id !== targetId && item.legalName.toLocaleLowerCase("es") === nextCompany.toLocaleLowerCase("es"))) throw Error("Ya existe una empresa con esa razón social.");
+              const index = s.companies.findIndex((item) => item.id === targetId);
+              const current: Company = { id: targetId, taxId: nextTaxId, legalName: nextCompany, tradeName: tradeName.trim() || undefined, fiscalAddress: address.trim(), taxRegime: taxRegime || undefined, phone: phone.trim() || undefined, email: email.trim() || undefined, website: website.trim() || undefined, baseCurrency: currency, active };
+              if (index >= 0) s.companies[index] = current; else s.companies.push(current);
+              if (index === 0 || s.companies.length === 1) { s.settings.company = nextCompany; s.settings.currency = currency; }
+              s.audit.unshift({ id: crypto.randomUUID(), date: new Date().toISOString(), action: index >= 0 ? "Actualizar empresa" : "Crear empresa", record: `${targetId}: ${nextCompany}` });
             });
             setError("");
-            toast.success("Empresa actualizada correctamente.");
+            toast.success(companyMaster ? "Empresa actualizada correctamente." : "Empresa creada correctamente.");
           } catch (err) {
             const message = err instanceof Error ? err.message : "No se pudo actualizar la empresa.";
             setError(message);
@@ -1036,7 +1214,7 @@ function Company() {
         {error && <p className="error" role="alert">{error}</p>}
         <div className="company-form-footer">
           <p>La moneda base se utilizará para precios, compras, ventas y reportes.</p>
-          <button className="btn" type="submit">Guardar cambios</button>
+          <button className="btn" type="submit">Guardar empresa</button>
         </div>
       </form>
       </div>
@@ -1083,6 +1261,7 @@ function Branches() {
   const [editor, setEditor] = useState<Partial<Branch> | null>(null);
   const [error, setError] = useState("");
   const branches = state.branches ?? [];
+  const companies = state.companies ?? [];
   const save = () => {
     if (!editor) return;
     try {
@@ -1091,10 +1270,13 @@ function Branches() {
       if (!name || !code) throw Error("El código y nombre de la sucursal son obligatorios.");
       transact((s) => {
         s.branches ??= [];
+        const companyId = String(editor.companyId ?? "").trim();
+        if (!companyId || !s.companies?.some((company) => company.id === companyId))
+          throw Error("Selecciona una empresa válida para la sucursal.");
         if (s.branches.some((branch) => branch.id !== editor.id && (branch.code.toLowerCase() === code.toLowerCase() || branch.name.toLowerCase() === name.toLowerCase())))
           throw Error("Ya existe una sucursal con ese código o nombre.");
         const id = editor.id ?? `SUC-${Date.now().toString(36).toUpperCase()}`;
-        const value: Branch = { id, companyId: editor.companyId ?? s.companies?.[0]?.id ?? "EMP-001", code, name, address: String(editor.address ?? "").trim(), phone: String(editor.phone ?? "").trim(), active: editor.active !== false };
+        const value: Branch = { id, companyId, code, name, address: String(editor.address ?? "").trim(), phone: String(editor.phone ?? "").trim(), active: editor.active !== false };
         const index = s.branches.findIndex((branch) => branch.id === id);
         if (index >= 0) s.branches[index] = value;
         else s.branches.push(value);
@@ -1108,9 +1290,22 @@ function Branches() {
     } catch (err) { setError(err instanceof Error ? err.message : "No se pudo guardar la sucursal."); }
   };
   return <section className="masters-section">
-    <MasterSectionHeader module="1.2" title="Sucursales" description="Define las sedes donde opera la empresa y relaciona sus almacenes." count={branches.length} icon={<MapPin size={20} />} onAdd={() => { setError(""); setEditor({ active: true, companyId: state.companies?.[0]?.id }); }} />
-    <div className="card masters-table-card"><table className="masters-table"><thead><tr><th>Código</th><th>Sucursal</th><th>Dirección</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody>{branches.map((branch) => <tr key={branch.id}><td><code>{branch.code}</code></td><td><strong>{branch.name}</strong></td><td>{branch.address || "No registrada"}</td><td>{branch.phone || "—"}</td><td><Tag value={branch.active ? "Activo" : "Inactivo"} /></td><td><button className="icon-btn" type="button" aria-label={`Editar ${branch.name}`} onClick={() => { setError(""); setEditor({ ...branch }); }}><Pencil size={16} /></button></td></tr>)}</tbody></table>{!branches.length && <div className="masters-empty"><MapPin size={28} /><h3>Aún no hay sucursales</h3><p>Registra la primera sede para organizar almacenes y operaciones.</p></div>}</div>
-    {editor && <Modal title={`${editor.id ? "Editar" : "Nueva"} sucursal`} subtitle="La sucursal se reutiliza en almacenes y documentos." onClose={() => setEditor(null)}><form onSubmit={(event) => { event.preventDefault(); save(); }}><div className="form-grid"><label>Código<input required value={String(editor.code ?? "")} onChange={(e) => setEditor({ ...editor, code: e.target.value.toUpperCase() })} placeholder="LIM-01" /></label><label>Nombre<input required value={String(editor.name ?? "")} onChange={(e) => setEditor({ ...editor, name: e.target.value })} placeholder="Sede central · Lima" /></label><label className="span-two">Dirección<input value={String(editor.address ?? "")} onChange={(e) => setEditor({ ...editor, address: e.target.value })} placeholder="Av. / calle y número" /></label><label>Teléfono<input type="tel" value={String(editor.phone ?? "")} onChange={(e) => setEditor({ ...editor, phone: e.target.value })} placeholder="01 000 0000" /></label><label>Estado<select value={editor.active === false ? "Inactivo" : "Activo"} onChange={(e) => setEditor({ ...editor, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></label></div>{error && <p className="error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditor(null)}>Cancelar</button><button className="btn">Guardar sucursal</button></div></form></Modal>}
+    <MasterSectionHeader
+      module="1.2"
+      title="Sucursales"
+      description="Define las sedes donde opera la empresa y relaciona sus almacenes."
+      count={branches.length}
+      icon={<MapPin size={20} />}
+      onAdd={() => {
+        setError("");
+        setEditor({
+          active: true,
+          companyId: companies.find((company) => company.active)?.id ?? companies[0]?.id ?? "",
+        });
+      }}
+    />
+    <div className="card masters-table-card"><table className="masters-table"><thead><tr><th>Código</th><th>Sucursal</th><th>Empresa</th><th>Dirección</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody>{branches.map((branch) => <tr key={branch.id}><td><code>{branch.code}</code></td><td><strong>{branch.name}</strong></td><td>{companies.find((company) => company.id === branch.companyId)?.tradeName || companies.find((company) => company.id === branch.companyId)?.legalName || branch.companyId}</td><td>{branch.address || "No registrada"}</td><td>{branch.phone || "—"}</td><td><Tag value={branch.active ? "Activo" : "Inactivo"} /></td><td><button className="icon-btn" type="button" aria-label={`Editar ${branch.name}`} onClick={() => { setError(""); setEditor({ ...branch }); }}><Pencil size={16} /></button></td></tr>)}</tbody></table>{!branches.length && <div className="masters-empty"><MapPin size={28} /><h3>Aún no hay sucursales</h3><p>Registra la primera sede para organizar almacenes y operaciones.</p></div>}</div>
+    {editor && <Modal title={`${editor.id ? "Editar" : "Nueva"} sucursal`} subtitle="La sucursal se reutiliza en almacenes y documentos." onClose={() => setEditor(null)}><form onSubmit={(event) => { event.preventDefault(); save(); }}><div className="form-grid"><label>Empresa<select required value={String(editor.companyId ?? "")} onChange={(e) => setEditor({ ...editor, companyId: e.target.value })}><option value="">Selecciona una empresa</option>{companies.filter((company) => company.active || company.id === editor.companyId).map((company) => <option key={company.id} value={company.id}>{company.tradeName || company.legalName} · {company.id}</option>)}</select></label><label>Código<input required value={String(editor.code ?? "")} onChange={(e) => setEditor({ ...editor, code: e.target.value.toUpperCase() })} placeholder="LIM-01" /></label><label>Nombre<input required value={String(editor.name ?? "")} onChange={(e) => setEditor({ ...editor, name: e.target.value })} placeholder="Sede central · Lima" /></label><label className="span-two">Dirección<input value={String(editor.address ?? "")} onChange={(e) => setEditor({ ...editor, address: e.target.value })} placeholder="Av. / calle y número" /></label><label>Teléfono<input type="tel" value={String(editor.phone ?? "")} onChange={(e) => setEditor({ ...editor, phone: e.target.value })} placeholder="01 000 0000" /></label><label>Estado<select value={editor.active === false ? "Inactivo" : "Activo"} onChange={(e) => setEditor({ ...editor, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></label></div>{error && <p className="error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditor(null)}>Cancelar</button><button className="btn">Guardar sucursal</button></div></form></Modal>}
   </section>;
 }
 

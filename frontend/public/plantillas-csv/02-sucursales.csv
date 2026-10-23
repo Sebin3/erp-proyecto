@@ -1,0 +1,11 @@
+id,companyId,code,name,address,phone,active
+SUC-003,EMP-002,TRU-01,Sucursal Trujillo,Av. América 456 Trujillo,044600123,true
+SUC-004,EMP-003,PIU-01,Sucursal Piura,Av. Grau 120 Piura,073600124,true
+SUC-005,EMP-004,HYO-01,Sucursal Huancayo,Av. Ferrocarril 230 Huancayo,064600125,true
+SUC-006,EMP-005,AQP-01,Sucursal Arequipa,Av. Dolores 340 Arequipa,054600126,true
+SUC-007,EMP-006,CUZ-01,Sucursal Cusco,Av. La Cultura 450 Cusco,084600127,true
+SUC-008,EMP-007,CAL-01,Sucursal Callao,Av. Néstor Gambetta 560 Callao,016600128,true
+SUC-009,EMP-008,LIM-02,Sucursal Lima Norte,Av. Túpac Amaru 670 Lima,016600129,true
+SUC-010,EMP-009,CHI-01,Sucursal Chiclayo,Av. Balta 780 Chiclayo,074600130,true
+SUC-011,EMP-010,AQP-02,Sucursal Arequipa Sur,Av. Socabaya 890 Arequipa,054600131,true
+SUC-012,EMP-011,LIM-03,Sucursal Lima Centro,Av. Colonial 910 Lima,016600132,true

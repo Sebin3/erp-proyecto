@@ -1,0 +1,11 @@
+id,code,name,creditDays,type,active
+CONTADO,CONT,Efectivo,0,Contado,true
+TRANSFERENCIA,TRANS,Transferencia bancaria,0,Electrónico,true
+YAP-003,YAPE,Yape / Plin,0,Electrónico,true
+CREDITO-30,CRED30,Crédito 30 días,30,Crédito,true
+CRED-045,CRED45,Crédito 45 días,45,Crédito,true
+CREDITO-60,CRED60,Crédito 60 días,60,Crédito,true
+CHE-007,CHEQUE,Cheque,0,Otro,true
+DEP-008,DEPOSITO,Depósito en cuenta,0,Electrónico,true
+TAR-009,TARJETA,Tarjeta,0,Electrónico,true
+MIX-010,MIXTO,Condición mixta,15,Otro,true

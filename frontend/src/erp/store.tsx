@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ensureAccessControl, initialState, type State } from "./model";
 import { ensureMasterData } from "./master-migrations";
+import { seedIntegratedDemoData } from "./integrated-demo-data";
 
 const KEY = "enterprisecloud-integrated-erp-v1";
 const OLD_BACKUP = `${KEY}-before-2026-10-16-cleanup`;
@@ -26,6 +27,8 @@ function read(): State {
     if (!raw) {
       const fresh = initialState();
       ensureMasterData(fresh);
+      seedIntegratedDemoData(fresh);
+      ensurePurchasePayables(fresh);
       localStorage.setItem(KEY, JSON.stringify(fresh));
       localStorage.removeItem(OLD_BACKUP);
       return fresh;
@@ -50,8 +53,14 @@ function read(): State {
     const accessUpdated = ensureAccessControl(state);
     const mastersUpdated = ensureMasterData(state);
     const payablesUpdated = ensurePurchasePayables(state);
+    let integratedDemoUpdated = false;
+    if (state.integratedDemoVersion !== 1) {
+      seedIntegratedDemoData(state);
+      ensurePurchasePayables(state);
+      integratedDemoUpdated = true;
+    }
     // Commit before returning so reloads and other tabs cannot restore demo data.
-    if (cleaned || demoOperationsCleared || accessUpdated || mastersUpdated || payablesUpdated)
+    if (cleaned || demoOperationsCleared || accessUpdated || mastersUpdated || payablesUpdated || integratedDemoUpdated)
       localStorage.setItem(KEY, JSON.stringify(state));
     localStorage.removeItem(OLD_BACKUP);
     return state;

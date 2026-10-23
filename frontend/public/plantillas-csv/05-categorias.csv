@@ -1,0 +1,11 @@
+id,code,name,parentId,active
+CAT-011,CAT-011,Productos terminados,,true
+CAT-012,CAT-012,Embalaje,,true
+CAT-013,CAT-013,Envases,,true
+CAT-014,CAT-014,Componentes,,true
+CAT-015,CAT-015,Seguridad,,true
+CAT-016,CAT-016,Materia prima,,true
+CAT-017,CAT-017,Bolsas,,true
+CAT-018,CAT-018,Film y laminados,,true
+CAT-019,CAT-019,Cajas,,true
+CAT-020,CAT-020,Accesorios,,true

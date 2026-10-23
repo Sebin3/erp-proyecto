@@ -1,0 +1,11 @@
+id,code,name,branch,branchId,type,active
+ALM-004,TRU-01,Almacén Trujillo,Sucursal Trujillo,SUC-003,Principal,true
+ALM-005,PIU-01,Almacén Piura,Sucursal Piura,SUC-004,Principal,true
+ALM-006,HYO-01,Almacén Huancayo,Sucursal Huancayo,SUC-005,Principal,true
+ALM-007,AQP-01,Almacén Arequipa,Sucursal Arequipa,SUC-006,Principal,true
+ALM-008,CUZ-01,Almacén Cusco,Sucursal Cusco,SUC-007,Principal,true
+ALM-009,CAL-01,Almacén Callao,Sucursal Callao,SUC-008,Principal,true
+ALM-010,LIM-02,Almacén Lima Norte,Sucursal Lima Norte,SUC-009,Secundario,true
+ALM-011,CHI-01,Almacén Chiclayo,Sucursal Chiclayo,SUC-010,Principal,true
+ALM-012,AQP-02,Almacén Arequipa Sur,Sucursal Arequipa Sur,SUC-011,Secundario,true
+ALM-013,LIM-03,Almacén Lima Centro,Sucursal Lima Centro,SUC-012,Tránsito,true

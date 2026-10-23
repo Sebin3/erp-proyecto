@@ -24,7 +24,7 @@ const aliases: Record<string, string> = {
   "/maestros": "/mantenimientos",
 };
 const masterSidebarRoutes: Array<{ name: string; path: string; tab: Catalog; icon: IconName }> = [
-  { name: "Empresa", path: "/maestros/empresa", tab: "Empresa", icon: "building" },
+  { name: "Empresas", path: "/maestros/empresa", tab: "Empresas", icon: "building" },
   { name: "Sucursales", path: "/maestros/sucursales", tab: "Sucursales", icon: "panel" },
   { name: "Almacenes", path: "/maestros/almacenes", tab: "Almacenes", icon: "stock" },
   { name: "Productos", path: "/maestros/productos", tab: "Productos", icon: "empty" },

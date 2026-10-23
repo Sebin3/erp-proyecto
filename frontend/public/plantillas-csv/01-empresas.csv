@@ -1,0 +1,11 @@
+id,taxId,legalName,tradeName,fiscalAddress,baseCurrency,taxRegime,phone,email,website,active
+EMP-002,20607890123,AlvaPlast S.A.C.,AlvaPlast,Av. Industrial 123 Lima,PEN,Régimen MYPE Tributario,016001234,contacto@alvaplast.pe,https://alvaplast.pe,true
+EMP-003,20607890124,AlvaPlast Norte S.A.C.,AlvaPlast Norte,Av. Panamericana 101 Piura,PEN,Régimen MYPE Tributario,073601235,norte@alvaplast.pe,https://alvaplast.pe,true
+EMP-004,20607890125,AlvaPlast Centro S.A.C.,AlvaPlast Centro,Av. Universitaria 202 Huancayo,PEN,Régimen General,064601236,centro@alvaplast.pe,https://alvaplast.pe,true
+EMP-005,20607890126,AlvaPlast Sur S.A.C.,AlvaPlast Sur,Av. Ejército 303 Arequipa,PEN,Régimen General,054601237,sur@alvaplast.pe,https://alvaplast.pe,true
+EMP-006,20607890127,Plásticos Andinos S.A.C.,Plásticos Andinos,Av. Industrial 404 Cusco,PEN,Régimen MYPE Tributario,084601238,contacto@plasticosandinos.pe,https://plasticosandinos.pe,true
+EMP-007,20607890128,Envases del Pacífico S.A.C.,Envases del Pacífico,Av. Costanera 505 Callao,PEN,Régimen General,016001239,contacto@envasespacifico.pe,https://envasespacifico.pe,true
+EMP-008,20607890129,Distribuciones Alva S.A.C.,Distribuciones Alva,Av. Próceres 606 Lima,PEN,Régimen MYPE Tributario,016001240,contacto@distribucionesalva.pe,https://distribucionesalva.pe,true
+EMP-009,20607890130,Manufacturas del Norte S.A.C.,Manufacturas del Norte,Av. Industrial 707 Chiclayo,PEN,Régimen General,074601241,contacto@manufacturasnorte.pe,https://manufacturasnorte.pe,true
+EMP-010,20607890131,Comercializadora Sur S.A.C.,Comercializadora Sur,Av. Parra 808 Arequipa,PEN,Régimen MYPE Tributario,054601242,contacto@comercializadorasur.pe,https://comercializadorasur.pe,true
+EMP-011,20607890132,Soluciones Plásticas S.A.C.,Soluciones Plásticas,Av. La Marina 909 Lima,USD,Régimen General,016001243,contacto@solucionesplasticas.pe,https://solucionesplasticas.pe,true
